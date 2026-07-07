@@ -1,7 +1,7 @@
 [versions]
-agp = "8.13.2"
-kotlin = "2.2.10"
-ksp = "2.2.10-2.0.2"
+agp = "9.2.1"
+kotlin = "2.3.20"
+ksp = "2.3.9"
 coreKtx = "1.17.0"
 appcompat = "1.7.0"
 material = "1.12.0"
@@ -168,7 +168,5 @@ androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-co
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 android-test = { id = "com.android.test", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "benchmark" }
