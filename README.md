@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/github/license/Eliminater74/PurefusionIPTV-plugin-api)](LICENSE)
 [![Release downloads](https://img.shields.io/github/downloads/Eliminater74/PurefusionIPTV-plugin-api/latest/total?label=latest%20release%20downloads)](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/latest)
 [![All releases downloads](https://img.shields.io/github/downloads/Eliminater74/PurefusionIPTV-plugin-api/total?label=all%20release%20downloads)](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.2+-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3+-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org/)
 [![minSdk](https://img.shields.io/badge/minSdk-25-3DDC84?logo=android)](https://developer.android.com/)
 
 **Open SDK** for building plugins that extend [PureFusion IPTV](https://github.com/Eliminater74) on Android TV.
@@ -26,6 +26,15 @@ Package: `dev.eliminater.purefusioniptv.plugin`
 
 **Latest stable API:** [v1.0.2](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.2)  
 Download counts above come from **GitHub Releases** assets (source zip/tarball and any AARs you attach to releases).
+
+> **Release tag vs. Gradle coordinate.** These are two different numbers and the difference is
+> intentional. The **release tag** (`v1.0.2`) identifies the repository revision you check out and
+> pin. The **Gradle artifact version** published by this build is `1.0.0`, and that is what you put
+> in your dependency line — it tracks the binary compatibility level of the interfaces, which has
+> not changed since `v1.0.0`. Tags `v1.0.1` and `v1.0.2` added interfaces and documentation without
+> breaking existing plugins, so the artifact version deliberately stayed at `1.0.0`.
+> When you compose this repo with `includeBuild`, the substitution rule below resolves the
+> dependency from source and the artifact version is not fetched from a repository at all.
 
 ---
 
@@ -121,13 +130,30 @@ Set `minAppVersion` on your plugin to the lowest PureFusion build you support (e
 
 ## Build this library locally
 
-From the repo root (Android SDK required):
+Requirements:
+
+| Component | Version |
+|-----------|---------|
+| Android Gradle Plugin | 9.2.1 |
+| Kotlin | 2.3.20 |
+| `compileSdk` / `minSdk` | 36 / 25 |
+| Java / Kotlin JVM target | 17 |
+
+A consuming build composed with `includeBuild` must use the **same AGP version** — Gradle refuses
+to load two different AGP versions in one composite build.
+
+This repository does **not** ship its own Gradle wrapper. Build it with the wrapper from the
+project that consumes it, or open it as a standalone Android library project in Android Studio:
 
 ```bash
-./gradlew assembleRelease
+# from a parent/consuming project that has a wrapper
+./gradlew -p plugin-api assembleRelease
 ```
 
-Output: `build/outputs/aar/` (when using the included Gradle wrapper from a parent project, or open as a standalone Android library project).
+An Android SDK location is required: set `ANDROID_HOME`, or create a git-ignored
+`local.properties` here containing `sdk.dir`.
+
+Output: `build/outputs/aar/`.
 
 ---
 
