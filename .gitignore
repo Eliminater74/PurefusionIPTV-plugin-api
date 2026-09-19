@@ -3,3 +3,4 @@ build/
 local.properties
 *.iml
 .DS_Store
+/.kotlin/sessions/kotlin-compiler-838599025077706810.salive
