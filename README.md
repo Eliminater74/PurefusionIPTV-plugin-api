@@ -283,7 +283,45 @@ not enter a crash loop on your behalf, and it will still start and run without y
 > containment at the call boundary — that is fault *handling*, not a security sandbox. A plugin
 > that blocks the main thread, exhausts memory, or crashes a thread the host does not own can still
 > take the app down. Treat plugin code as trusted, and do not rely on the host to contain it.
-> Out-of-process isolation is planned; see the note in **Security notice**.
+> The out-of-process runtime now exists in the host but does not yet carry the provider APIs —
+> see **Process isolation** below.
+
+---
+
+## Process isolation
+
+The host has a second way to run a plugin: a **worker process**, declared with `android:process`,
+hosting exactly one plugin. It exists and is exercised, but it is **not yet the default** — the
+provider interfaces cannot cross a Binder boundary in their current shape, so `MediaServerProvider`,
+`CloudStorageProvider` and `SyncProvider` still load in-process. Nothing below changes how your
+plugin is loaded today.
+
+Write your plugin as if it will move, because it will:
+
+| Assumption | Holds in-process | Holds in a worker |
+|------------|------------------|-------------------|
+| `onLoad(context)` gives you a usable `Context` | yes | yes — but it is the **worker's** context, not the host's |
+| Static state is shared with the host app | yes | **no** — a different process has its own statics |
+| Static state is shared with other plugins | yes | **no** — one plugin per process |
+| A `Toast`, dialog or Activity launch behaves normally | yes | **no** — a worker has no UI task; ask the host |
+| `onUnload` runs to completion before teardown | yes | **bounded** — see below |
+| An uncaught exception on your own thread kills the app | yes | **no** — it kills your worker only |
+
+**`onUnload` gets a deadline.** In a worker the host allows roughly half a second for `onUnload` to
+return, then unbinds and, if the process has not exited, terminates it. This is what makes unload
+*real* — the JVM cannot reclaim a classloader that anything still references, so process
+termination is the only mechanism that actually frees what your plugin held. Do not put a network
+round trip in `onUnload`; flush what must be flushed and return.
+
+**Crashing your worker is survivable, and counted.** Three worker deaths within five minutes
+quarantines the plugin until the user clears it. The host does not restart you in a loop.
+
+**What isolation this is.** A worker is a separate process at the **same UID**, so it has the app's
+permissions and can read the app's private files. That is fault isolation and real resource
+reclamation — not a privilege boundary. `android:isolatedProcess` would give the latter, but an
+isolated process has no permissions at all, including no network, which no cloud or media-server
+plugin could use. The honest summary: the host can now contain your crash and truly unload you; it
+still cannot contain what you choose to do with the permissions it has.
 
 ---
 
@@ -294,7 +332,7 @@ not enter a crash loop on your behalf, and it will still start and run without y
 | [v1.0.0](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.0) | Initial `Plugin` + `MediaServerProvider` |
 | [v1.0.1](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.1) | Adds `CloudStorageProvider` + `SyncProvider` |
 | [v1.0.2](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.2) | README, author guide, Apache 2.0 license |
-| _unreleased_ | Adds `PluginApi` level + `Plugin.apiLevel`; documents `.pfp`, identity and lifecycle |
+| _unreleased_ | Adds `PluginApi` level + `Plugin.apiLevel`; documents `.pfp`, identity, lifecycle and [process isolation](#process-isolation) |
 
 Set `minAppVersion` to the lowest PureFusion build you support (e.g. `1.0.0-Beta-9.15`), and set
 `apiLevel` to `PluginApi.CURRENT`. They answer different questions — see
@@ -309,7 +347,7 @@ Set `minAppVersion` to the lowest PureFusion build you support (e.g. `1.0.0-Beta
 | `PluginApi` / `apiLevel` | **New.** The rule is implemented and enforced by the host |
 | `.pfp` packaging + manifest schema | **Implemented in the host**, tooling not yet published |
 | Lifecycle state machine | **Implemented in the host**; no plugin-facing API yet beyond `onLoad`/`onUnload` |
-| Out-of-process isolation | **Not implemented.** Plugins run in the host process today |
+| Out-of-process isolation | **Runtime implemented, not yet the default.** The worker process, Binder contract and unload sequence exist; the provider APIs do not cross yet, so plugins still load in-process. See [Process isolation](#process-isolation) |
 | Third-party signing / trust tiers | **Format reserved, not enforced** for third-party keys |
 
 ---
@@ -366,9 +404,11 @@ What the host **does** provide today:
 
 What it **does not** provide:
 
-- process, memory or thread isolation;
+- process, memory or thread isolation **on the path your plugin currently runs on**;
 - protection from a plugin that blocks the main thread, exhausts memory, crashes a thread the host
   does not own, or calls `System.exit()`;
+- a privilege boundary, even in a worker process — a worker shares the app's UID, permissions and
+  private files;
 - enforced trust separation for third-party signing keys.
 
 These are three different properties and the host currently delivers only the first two:
@@ -376,9 +416,14 @@ These are three different properties and the host currently delivers only the fi
 **trust** (what that key is permitted to do). Trust tiers exist in the manifest format but are not
 enforced for third-party keys.
 
-Out-of-process isolation — hosting plugin code in a separate, optionally isolated process behind a
-Binder contract — is the intended direction. It is **not implemented**, and nothing in this README
-should be read as claiming plugin code is sandboxed.
+Out-of-process isolation — hosting plugin code in a separate process behind a Binder contract — now
+exists in the host: a fixed pool of worker processes, one plugin each, with a bounded unload that
+ends in process termination and a crash counter that quarantines a repeatedly dying worker. It is
+**not yet the path your plugin runs on**, because the provider interfaces pass `Flow`,
+`InputStream` and `Context`, none of which cross a Binder transaction unchanged.
+
+Even once it is, it is not a sandbox: a worker runs at the app's UID with the app's permissions.
+Nothing in this README should be read as claiming plugin code is sandboxed.
 
 ---
 
