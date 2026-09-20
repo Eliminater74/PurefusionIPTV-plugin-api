@@ -1,4 +1,4 @@
-package dev.eliminater.purefusioniptv.plugin
+package dev.eliminater.purefusioniptv.plugin.api
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

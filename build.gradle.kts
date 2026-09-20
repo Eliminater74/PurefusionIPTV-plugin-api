@@ -12,7 +12,7 @@ group = "dev.eliminater.purefusioniptv"
 version = "1.0.0"
 
 android {
-    namespace = "dev.eliminater.purefusioniptv.plugin"
+    namespace = "dev.eliminater.purefusioniptv.plugin.api"
     compileSdk = 36
 
     defaultConfig {

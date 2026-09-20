@@ -18,11 +18,27 @@ The **PureFusion IPTV application is closed source**. You do **not** need the ap
 | In this repo | Not in this repo |
 |--------------|------------------|
 | `Plugin` base interface + `PluginCapability` | PureFusion IPTV app source |
+| `PluginApi` level + compatibility rule | Package validation / install pipeline |
+| `PfpPackager` — builds `.pfp` packages | Loader, lifecycle orchestration, signing keys |
 | `MediaServerProvider` (Emby, Jellyfin, Plex, …) | Player, EPG, playlist core |
 | `CloudStorageProvider` (Drive, WebDAV, …) | Closed-source UI |
 | `SyncProvider` | Marketplace signing keys |
 
-Package: `dev.eliminater.purefusioniptv.plugin`
+Package: `dev.eliminater.purefusioniptv.plugin.api`
+
+> **Moved in Phase 2.** Public contracts were previously in `dev.eliminater.purefusioniptv.plugin`,
+> which the closed-source host also used for its own loader and installer. They now live in a
+> dedicated `…​.plugin.api` package so the host can grant plugins access to the API namespace as a
+> unit instead of maintaining a list of individual class names. Update your imports:
+>
+> ```diff
+> - import dev.eliminater.purefusioniptv.plugin.Plugin
+> + import dev.eliminater.purefusioniptv.plugin.api.Plugin
+> ```
+>
+> This is a breaking change, made deliberately **before** the first public release. No
+> compatibility aliases were added — a never-published API does not deserve permanent deprecated
+> bridges in its public surface.
 
 ### Repository naming
 
@@ -92,16 +108,21 @@ dependencies {
 ### 3. Implement a plugin
 
 ```kotlin
+import dev.eliminater.purefusioniptv.plugin.api.MediaServerProvider
+import dev.eliminater.purefusioniptv.plugin.api.Plugin
+import dev.eliminater.purefusioniptv.plugin.api.PluginApi
+
 class MyPlugin : Plugin, MediaServerProvider {
-    override val id = "com.example.myplugin"
-    override val name = "My Server"
+    override val id = "com.example.myplugin"          // stable identity, never changes
+    override val name = "My Server"                   // display only, free to change
+    override val apiLevel = PluginApi.CURRENT         // required — see Plugin API level
     // … see docs/PLUGIN_AUTHOR_GUIDE.md
 }
 ```
 
 ### 4. Register for discovery
 
-Create `src/main/resources/META-INF/services/dev.eliminater.purefusioniptv.plugin.Plugin`:
+Create `src/main/resources/META-INF/services/dev.eliminater.purefusioniptv.plugin.api.Plugin`:
 
 ```text
 com.example.myplugin.MyPlugin
@@ -182,10 +203,55 @@ The manifest is validated — schema version, plugin id, host version range, pay
 signing metadata — **before** any executable payload is read. A package that fails validation is
 rejected without its code being loaded.
 
-> **Status:** the package format, manifest schema, validation and install pipeline live in the
-> closed-source host app, not in this repository. This section documents the contract your build
-> output must satisfy; the tooling to produce `.pfp` packages is not yet published. Until it is,
-> plugins are integrated by the PureFusionIPTV team.
+### Building a `.pfp`
+
+`PfpPackager` ships in this SDK. It uses the JDK only — no Android, no PureFusionIPTV core — so a
+standalone plugin repository can produce a package from a clean checkout of itself plus this
+library.
+
+```kotlin
+import dev.eliminater.purefusioniptv.plugin.api.PluginApi
+import dev.eliminater.purefusioniptv.plugin.packaging.PfpPackager
+
+val pkg = PfpPackager.build(
+    PfpPackager.Request(
+        pluginId = "dev.example.myplugin",          // reverse-DNS, stable forever
+        displayName = "My Plugin",
+        developerId = "dev.example",
+        version = "1.0.0",
+        versionCode = 1,
+        apiLevel = PluginApi.CURRENT,               // required
+        minHostVersion = "2.0.0",
+        minSdk = 25,
+        entryPointClassName = "dev.example.myplugin.MyPlugin",
+        payload = listOf(
+            PfpPackager.PayloadSource("classes.dex", dexBytes),
+        ),
+    ),
+    outputDir = layout.buildDirectory.dir("pfp").get().asFile,
+)
+```
+
+Output is `<pluginId>-<version>.pfp`, with this layout:
+
+| Entry | Contents |
+|-------|----------|
+| `manifest.json` | schema version, identity, `apiLevel`, host bounds, entry point, payload hashes |
+| `payload/…` | your executable artifacts |
+| `certs/developer-public-key.pem` | signing only — not produced by this tool |
+| `signatures/developer.sig` | signing only — not produced by this tool |
+
+The packager fails the build — before writing anything — on an invalid plugin id, a missing
+`apiLevel`, an empty payload, a missing entry point, a path that escapes `payload/`, duplicate
+entries (including case-only duplicates), and on any attempt to bundle `plugin-api` bytecode.
+Output is byte-reproducible for identical inputs.
+
+> **Status:** package *validation* and the install pipeline live in the closed-source host.
+> `PfpPackager` produces **unsigned development packages**: SHA-256 payload hashes give
+> **integrity**, but not **identity** or **trust** (see [Security notice](#security-notice)).
+> Signing requires a real developer key and no developer-facing signing workflow exists yet, so
+> none is invented here. Unsigned packages install where the host permits sideload and are refused
+> where signatures are required.
 
 ---
 
