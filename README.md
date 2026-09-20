@@ -291,10 +291,17 @@ not enter a crash loop on your behalf, and it will still start and run without y
 ## Process isolation
 
 The host has a second way to run a plugin: a **worker process**, declared with `android:process`,
-hosting exactly one plugin. It exists and is exercised, but it is **not yet the default** — the
-provider interfaces cannot cross a Binder boundary in their current shape, so `MediaServerProvider`,
-`CloudStorageProvider` and `SyncProvider` still load in-process. Nothing below changes how your
-plugin is loaded today.
+hosting exactly one plugin. It exists and is exercised, but it is **not yet the default** — so
+`MediaServerProvider`, `CloudStorageProvider` and `SyncProvider` still load in-process today.
+Nothing below changes how your plugin is loaded right now.
+
+**You do not implement anything to support this.** You write the same `Plugin`,
+`CloudStorageProvider`, `MediaServerProvider` or `SyncProvider` you always have. When the host runs
+you in a worker it holds a proxy that implements the same interface and forwards each call across
+the boundary; inside the worker an adapter turns it back into an ordinary call on your object.
+Suspending functions stay suspending, `Flow`s stay `Flow`s, progress callbacks keep firing, and
+streams keep streaming. There is no AIDL in the developer API, and there never will be — Binder is
+the host's transport, not your contract.
 
 Write your plugin as if it will move, because it will:
 
@@ -316,12 +323,51 @@ round trip in `onUnload`; flush what must be flushed and return.
 **Crashing your worker is survivable, and counted.** Three worker deaths within five minutes
 quarantines the plugin until the user clears it. The host does not restart you in a loop.
 
+**Honour cancellation.** This is the one thing the transport genuinely needs from you. When a
+screen closes or a user navigates away, the host cancels the coroutine that called you and tells
+the worker; the worker cancels the coroutine your method is running in. If your code is a plain
+blocking loop with no suspension point, nothing can interrupt it and your work runs to completion
+with nobody waiting for the result. In practice: use suspending I/O, check `isActive` in long
+loops, and let `CancellationException` propagate rather than swallowing it in a broad `catch`.
+
+**Do not rely on object identity across calls.** The host may hold a proxy rather than your
+instance, so an object you return from one call is not guaranteed to come back as the same object
+later, and `==` on something the host handed you compares a copy. Identify things by id, the way
+you would across any network boundary.
+
+**A few shapes cost more across a boundary than in-process.** A `Flow` is delivered in batches
+under a credit window, so a very chatty flow is throttled by design rather than buffered without
+limit. A progress callback is rate-limited to roughly twenty updates a second — reporting every
+4 KB of a large upload is fine, it simply will not all be delivered, and the final 1.0 always is.
+Bulk bytes go through a pipe, never a Binder transaction, so streaming a large file is efficient
+while returning one as a `ByteArray` would not be.
+
+**Resource ids do not travel.** `iconResourceId` and `serverIconResourceId` index *your* APK's
+resources, which the host process has not loaded. A host running you in a worker reads them as "no
+icon" until host-side resource loading exists.
+
 **What isolation this is.** A worker is a separate process at the **same UID**, so it has the app's
 permissions and can read the app's private files. That is fault isolation and real resource
 reclamation — not a privilege boundary. `android:isolatedProcess` would give the latter, but an
 isolated process has no permissions at all, including no network, which no cloud or media-server
 plugin could use. The honest summary: the host can now contain your crash and truly unload you; it
 still cannot contain what you choose to do with the permissions it has.
+
+**What does not cross yet.** Three members need the host to act on the plugin's behalf and are not
+available in a worker: `CloudStorageProvider.authenticate`, `CloudStorageProvider.handleAuthResult`
+and `MediaServerProvider.createSettingsIntent`. All three take or return a `Context` or an
+`Intent`, which means launching UI — and a worker has no UI task of its own. They fail with a clear
+"unsupported" error rather than silently returning null, because a null from `authenticate` means
+"already signed in" and reporting that for a sign-in that never happened would be worse than
+failing.
+
+Four more are blocked by the API rather than by the transport: `SyncProvider.sync`, `syncAll`,
+`resolveConflict` and `getPendingConflicts`. They carry `SyncConflict`, whose `localData` and
+`remoteData` are declared `Any` — and there is no way to serialise `Any`. Giving those fields a
+declared type is an API change, and it is on the roadmap rather than improvised inside a codec.
+`SyncState.Error` likewise crosses with its message but without its `Throwable`: a plugin's
+exception class does not exist in the host's classloader, so it could not be reconstructed there
+even if it were sent.
 
 ---
 
@@ -347,7 +393,7 @@ Set `minAppVersion` to the lowest PureFusion build you support (e.g. `1.0.0-Beta
 | `PluginApi` / `apiLevel` | **New.** The rule is implemented and enforced by the host |
 | `.pfp` packaging + manifest schema | **Implemented in the host**, tooling not yet published |
 | Lifecycle state machine | **Implemented in the host**; no plugin-facing API yet beyond `onLoad`/`onUnload` |
-| Out-of-process isolation | **Runtime implemented, not yet the default.** The worker process, Binder contract and unload sequence exist; the provider APIs do not cross yet, so plugins still load in-process. See [Process isolation](#process-isolation) |
+| Out-of-process isolation | **Runtime and transport implemented, not yet the default.** Worker process, unload sequence, and remote proxying for calls, flows, streams and progress. `CloudStorageProvider` is proxied end to end; the other providers are not yet. See [Process isolation](#process-isolation) |
 | Third-party signing / trust tiers | **Format reserved, not enforced** for third-party keys |
 
 ---
