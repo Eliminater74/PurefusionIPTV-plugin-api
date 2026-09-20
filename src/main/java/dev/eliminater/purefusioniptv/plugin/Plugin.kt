@@ -48,8 +48,21 @@ interface Plugin {
     /**
      * Minimum required PureFusionIPTV version
      * Format: "major.minor.patch" (e.g., "1.0.0")
+     *
+     * This is a *product* floor — "needs a build with this feature in it". It is not the
+     * compatibility contract for these interfaces; see [apiLevel].
      */
     val minAppVersion: String
+
+    /**
+     * The plugin API level this plugin was built against — normally [PluginApi.CURRENT] at
+     * build time.
+     *
+     * This, not [minAppVersion], is what the host checks before loading plugin code. The default
+     * is [PluginApi.LEVEL_UNSPECIFIED] so plugins written before the level existed still compile;
+     * the host refuses to load them and reports why, rather than guessing a level for them.
+     */
+    val apiLevel: Int get() = PluginApi.LEVEL_UNSPECIFIED
 
     /**
      * Plugin capabilities - what types of features this plugin provides

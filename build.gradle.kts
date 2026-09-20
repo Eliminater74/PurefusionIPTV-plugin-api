@@ -35,4 +35,9 @@ kotlin {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+
+    // The compatibility contract in PluginApi is the one part of this module with behaviour rather
+    // than just shape, and it is what the host uses to refuse a plugin before loading its code.
+    // A module intended to ship publicly should be able to prove that rule on its own.
+    testImplementation(libs.junit)
 }
