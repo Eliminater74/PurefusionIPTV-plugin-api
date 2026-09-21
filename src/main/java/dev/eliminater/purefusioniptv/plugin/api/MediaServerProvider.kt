@@ -1,7 +1,5 @@
 package dev.eliminater.purefusioniptv.plugin.api
 
-import android.content.Context
-import android.content.Intent
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -22,9 +20,19 @@ interface MediaServerProvider : Plugin {
     val serverType: String
 
     /**
-     * Server icon resource ID for display in UI
+     * Path to this server's icon **inside the plugin's own `.pfp` package**, e.g.
+     * `assets/icon.png`.
+     *
+     * Replaced `serverIconResourceId: Int` at plugin API level 3. A resource id indexes the
+     * resource table of the APK that defined it, and the host has not loaded yours — the integer
+     * crossed the boundary perfectly and meant nothing on arrival. A package-relative path is
+     * something the host can resolve, and it keeps working while the plugin's worker is not
+     * running.
+     *
+     * Relative to the package root, no `..` segments. PNG, JPEG or WebP.
      */
-    val serverIconResourceId: Int
+    val serverIconAssetPath: String?
+        get() = null
 
     /**
      * Check if user is authenticated with the media server
@@ -157,10 +165,18 @@ interface MediaServerProvider : Plugin {
     fun supportsFeature(feature: MediaServerFeature): Boolean
 
     /**
-     * Optional plugin-owned settings screen. When non-null, the host app should
-     * [android.content.Context.startActivity] with this intent (e.g. from Plugin Hub).
+     * Describe a settings page for this plugin. The host opens it.
+     *
+     * Replaced `createSettingsIntent(Context): Intent?` at plugin API level 3, for the same
+     * reasons as [CloudStorageProvider.authenticate] — see [PluginUiRequest].
+     *
+     * Return null when the plugin has nothing to configure, which is the default. The host
+     * validates whatever is returned and will refuse a plugin that has not declared
+     * `UI_SETTINGS_EXTENSION` in its package manifest.
+     *
+     * There is no result: the user is finished when they leave.
      */
-    fun createSettingsIntent(context: Context): Intent? = null
+    fun settingsRequest(): PluginUiRequest? = null
 }
 
 /**

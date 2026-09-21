@@ -1,7 +1,5 @@
 package dev.eliminater.purefusioniptv.plugin.api
 
-import android.content.Context
-import android.content.Intent
 import kotlinx.coroutines.flow.Flow
 import java.io.InputStream
 import java.io.OutputStream
@@ -13,14 +11,49 @@ interface CloudStorageProvider : Plugin {
 
     val providerName: String
 
-    val iconResourceId: Int
-        get() = 0
+    /**
+     * Path to this provider's icon **inside the plugin's own `.pfp` package**, e.g.
+     * `assets/icon.png`.
+     *
+     * Replaced `iconResourceId: Int` at plugin API level 3. A resource id indexes the resource
+     * table of the APK that defined it, and the host process has not loaded yours — so the integer
+     * crossed the boundary perfectly and meant nothing on arrival. A path into the package is
+     * something the host can actually resolve, and it keeps working when the plugin's worker is
+     * not running.
+     *
+     * Relative to the package root, no `..` segments. PNG, JPEG or WebP.
+     */
+    val iconAssetPath: String?
+        get() = null
 
     suspend fun isAuthenticated(): Boolean
 
-    suspend fun authenticate(context: Context): Intent?
+    /**
+     * Describe the sign-in flow. The host performs it.
+     *
+     * Replaced `authenticate(Context): Intent?` at plugin API level 3 — see [PluginUiRequest] for
+     * why a `Context` cannot be given to you and an `Intent` cannot be accepted from you.
+     *
+     * Return null when there is nothing to do, which is how you say "already signed in". The host
+     * never treats a request as optional: if you return one, it is validated, and you will receive
+     * exactly one [PluginUiResult] through [handleAuthResult] whatever happens to it.
+     *
+     * Requires `CLOUD_STORAGE_ACCESS` in your package manifest.
+     */
+    suspend fun authenticate(): PluginUiRequest?
 
-    suspend fun handleAuthResult(resultCode: Int, data: Intent?): Boolean
+    /**
+     * Receive the outcome of the flow [authenticate] asked for.
+     *
+     * Called exactly once per request, including for outcomes you did not cause —
+     * [PluginUiOutcome.CANCELLED], [PluginUiOutcome.DENIED], [PluginUiOutcome.EXPIRED]. Treat
+     * anything other than [PluginUiOutcome.COMPLETED] as "not signed in".
+     *
+     * Verify the `state` parameter yourself; the host cannot do it for you.
+     *
+     * @return whether the plugin is now authenticated.
+     */
+    suspend fun handleAuthResult(result: PluginUiResult): Boolean
 
     suspend fun signOut()
 

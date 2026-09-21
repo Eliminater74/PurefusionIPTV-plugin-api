@@ -70,8 +70,29 @@ interface Plugin {
     val capabilities: List<PluginCapability>
 
     /**
-     * Called when plugin is loaded and attached to the app
-     * @param context Application context for resource access
+     * Called when the plugin is loaded.
+     *
+     * ## Why this still takes a `Context` when nothing else does
+     *
+     * Plugin API level 3 removed `Context` from every other member, and this one was examined
+     * alongside them and deliberately kept.
+     *
+     * The others were removed because they asked the *host* to hand its own `Context` across a
+     * process boundary. This one does not: when your plugin runs in a worker process, the
+     * `Context` you receive is that worker's own application context, constructed in the process
+     * your code is executing in. It is a real, usable `Context` for the things a plugin legitimately
+     * needs — `SharedPreferences`, a cache directory, a `ConnectivityManager` — and none of them
+     * reach into the host.
+     *
+     * So it is not a host object crossing a boundary; it is your process's own context, handed to
+     * you locally. Removing it would cost plugins real functionality and buy no isolation: your
+     * worker already runs under the app's UID, and this `Context` grants nothing beyond that.
+     *
+     * What it is **not** is a route to the host. There is no host `Activity`, no host singleton,
+     * and no host component reachable through it. To have the host show something, describe it
+     * with [PluginUiRequest].
+     *
+     * @param context your own process's application context.
      */
     fun onLoad(context: Context)
 

@@ -147,6 +147,7 @@ Packaging format and trust rules are described in [PLUGIN_AUTHOR_GUIDE.md](docs/
 | `CloudStorageProvider` | Upload/download/list for cloud backup |
 | `SyncProvider` | Cross-device sync hooks |
 | `SyncPayload` | Serialised record carried by `SyncConflict` (new at API level 2) |
+| `PluginUiRequest` / `PluginUiResult` | How a plugin asks the host to show sign-in or settings (new at API level 3) |
 
 More capability interfaces (EPG, catch-up, UI extensions) may be added in future API versions. Pin a **release tag** and watch [Releases](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases) for breaking changes.
 
@@ -210,6 +211,90 @@ SyncConflict(
 **If you only implement `MediaServerProvider` or `CloudStorageProvider`**, nothing in your code
 changes — but you still need to rebuild with `apiLevel = PluginApi.CURRENT`, because the level is
 declared per plugin rather than per interface.
+
+### Level 3 — no more `Context` or `Intent`
+
+`MIN_SUPPORTED` is now **3**. Five members changed, and `android.content.Context` and
+`android.content.Intent` are gone from the public surface entirely.
+
+| Was (level 2) | Is (level 3) |
+|---------------|--------------|
+| `authenticate(context: Context): Intent?` | `authenticate(): PluginUiRequest?` |
+| `handleAuthResult(resultCode: Int, data: Intent?)` | `handleAuthResult(result: PluginUiResult)` |
+| `createSettingsIntent(context: Context): Intent?` | `settingsRequest(): PluginUiRequest?` |
+| `iconResourceId: Int` | `iconAssetPath: String?` |
+| `serverIconResourceId: Int` | `serverIconAssetPath: String?` |
+
+**Why.** Three separate problems, none of which have a workaround:
+
+1. **There is no `Context` to give you.** A worker process has its own, not the host's, and handing
+   over the host's would put a handle to its identity, files and components inside plugin code —
+   the thing process isolation exists to prevent.
+2. **A worker has no UI task.** It is a `Service` in a process with no `Activity` back stack, so
+   `startActivity` from there either fails or launches into a task that behaves nothing like the
+   rest of the app.
+3. **An arbitrary `Intent` is an arbitrary privilege.** A plugin that can hand the host any
+   `Intent` and have it launched can target the host's internal Activities, aim at other apps'
+   exported components, or carry a `file://` URI into something that opens it.
+
+A resource id had a fourth problem: it indexes *your* APK's resource table, which the host has not
+loaded, so the integer crossed perfectly and meant nothing on arrival.
+
+#### Migrating an auth flow
+
+Describe an OAuth 2.0 authorization-code flow and let the host run it:
+
+```kotlin
+override suspend fun authenticate(): PluginUiRequest? {
+    if (isSignedIn()) return null                       // null means "nothing to do"
+    return PluginUiRequest(
+        kind = PluginUiKind.AUTHENTICATION,
+        url = "https://accounts.example.com/o/oauth2/v2/auth",
+        redirectScheme = "com.example.myplugin",        // the host watches for this
+        title = "Sign in to Example",
+        parameters = mapOf(
+            "client_id" to CLIENT_ID,
+            "response_type" to "code",
+            "state" to newState(),                      // keep it; verify it below
+        ),
+    )
+}
+
+override suspend fun handleAuthResult(result: PluginUiResult): Boolean {
+    if (result.outcome != PluginUiOutcome.COMPLETED) return false
+    if (result.values["state"] != expectedState) return false   // the host cannot check this
+    val code = result.values["code"] ?: return false
+    return exchangeCodeForToken(code)
+}
+```
+
+`handleAuthResult` is called **exactly once** per request, including for outcomes you did not
+cause — `CANCELLED`, `DENIED`, `EXPIRED`. Treat anything but `COMPLETED` as "not signed in". You
+will never be left waiting.
+
+**What the host checks before showing anything:** `https` only; no embedded credentials; a
+redirect scheme you own (not `http`/`https`); bounded parameters; the user is Premium; and your
+package manifest declares `CLOUD_STORAGE_ACCESS` or `MEDIA_SERVER_ACCESS`. A settings request
+needs `UI_SETTINGS_EXTENSION`.
+
+**What no longer works:** an SDK's own sign-in `Activity`. That has to run in a process with the
+SDK loaded — which is the worker, the one process that cannot show UI. Move to a URL-based flow.
+
+#### Migrating settings and icons
+
+```kotlin
+override fun settingsRequest(): PluginUiRequest? = PluginUiRequest(
+    kind = PluginUiKind.SETTINGS,
+    url = "https://example.com/app-settings",
+    title = "Example settings",
+)
+
+override val serverIconAssetPath: String? = "assets/icon.png"   // path inside your .pfp
+```
+
+The icon path is resolved by the host against your installed package, so it works while your
+plugin is **not running** — which is what the Plugin Hub needs to draw a list. PNG, JPEG or WebP,
+under 512 KB, no `..` segments.
 
 ---
 

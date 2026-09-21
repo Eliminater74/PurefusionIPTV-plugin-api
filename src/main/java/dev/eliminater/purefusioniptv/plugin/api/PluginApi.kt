@@ -42,24 +42,32 @@ object PluginApi {
      * of a string `errorCode`. Both were unavoidable — neither `Any` nor `Throwable` can cross a
      * process boundary, so those members could not be served to a plugin running out of process at
      * all.
+     *
+     * **Level 3** removed `android.content.Context` and `android.content.Intent` from the public
+     * surface entirely. `authenticate(Context): Intent?`, `handleAuthResult(Int, Intent?)` and
+     * `createSettingsIntent(Context): Intent?` became [PluginUiRequest] and [PluginUiResult]; the
+     * two `iconResourceId` properties became package-relative asset paths. Same reason each time:
+     * a worker has no host `Context` to receive, no UI task to launch from, and handing the host
+     * an arbitrary `Intent` is handing it an arbitrary privilege.
      */
-    const val CURRENT: Int = 2
+    const val CURRENT: Int = 3
 
     /**
      * The oldest plugin-declared level this host still accepts.
      *
-     * Raised to 2 by the level-2 `SyncProvider` change. The evolution rules above require this: a
-     * plugin compiled against level 1 references `SyncConflict(localData = Any)` and a
-     * two-argument `SyncState.Error`, and both would fail to link inside the plugin's own code.
-     * Rejecting it at install time — where the host can explain that the plugin needs updating —
-     * is the point of having the level at all.
+     * Raised to 3 by the level-3 UI-contract change. The evolution rules above require it: a
+     * plugin compiled against level 2 overrides `authenticate(Context)` and
+     * `createSettingsIntent(Context)`, neither of which exists any more, so its class would fail
+     * to link inside its own code. Rejecting it at install time — where the host can explain that
+     * the plugin needs updating — is the point of having the level at all.
      *
-     * Only `SyncProvider` implementations are actually affected. `MediaServerProvider` and
-     * `CloudStorageProvider` plugins are unchanged in substance, but they still have to be rebuilt
-     * with `apiLevel = PluginApi.CURRENT`, because the level is declared per plugin rather than
-     * per interface.
+     * This is the last level at which such a change is cheap. `plugin-api` has not had a public
+     * release, so nothing third-party is being broken; the two first-party plugins are rebuilt
+     * alongside the host. Removing `Context` from a published API later would be far more
+     * expensive than removing it now, which is why both breaking changes were taken in the same
+     * pre-release window rather than deferred.
      */
-    const val MIN_SUPPORTED: Int = 2
+    const val MIN_SUPPORTED: Int = 3
 
     /** A plugin that declared no API level. Rejected rather than guessed at. */
     const val LEVEL_UNSPECIFIED: Int = 0
