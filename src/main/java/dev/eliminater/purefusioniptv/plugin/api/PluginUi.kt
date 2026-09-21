@@ -71,6 +71,18 @@ data class PluginUiRequest(
      * logged, cached and shown in a browser's address bar.
      */
     val parameters: Map<String, String> = emptyMap(),
+
+    /**
+     * For [PluginUiKind.DEVICE_AUTHORIZATION]: the short code the user types on their phone.
+     *
+     * Displayed by the host next to [url]. It is a one-time, user-facing pairing code with a few
+     * minutes of life and no value on its own — it authorises nothing without the user also
+     * signing in at the verification URL — so unlike a token it is safe to put on a screen. It is
+     * still not logged, because it is an authorisation artefact and the habit is worth keeping.
+     *
+     * Null for every other kind, and required for this one.
+     */
+    val userCode: String? = null,
 )
 
 /**
@@ -95,6 +107,32 @@ enum class PluginUiKind {
      * whether they got there.
      */
     SETTINGS,
+
+    /**
+     * Sign in using the OAuth 2.0 device authorization grant (RFC 8628).
+     *
+     * ## Why this exists alongside [AUTHENTICATION]
+     *
+     * [AUTHENTICATION] assumes a browser on *this* device that can be redirected back to the app.
+     * On an Android TV neither half of that is reliable: many TV devices ship without a browser at
+     * all, and the ones that do cannot practically be driven with a remote control — typing a
+     * Google password on a D-pad keyboard is a genuinely hostile experience.
+     *
+     * The device grant inverts it. The TV displays a short [PluginUiRequest.userCode] and a
+     * verification URL; the user opens that URL on a phone or laptop and types the code there. The
+     * plugin polls the token endpoint in the background and knows when it succeeded.
+     *
+     * ## Why it suits process isolation better
+     *
+     * There is **no redirect URI**, so there is no scheme for the host to own, nothing to route,
+     * and no result to deliver across the boundary. The host's only job is to show two strings.
+     * The plugin does the polling and the token exchange itself, which means tokens never enter
+     * the host process at all — the strongest form of the property the transport was trying to
+     * achieve by other means.
+     *
+     * Requires `CLOUD_STORAGE_ACCESS` or `MEDIA_SERVER_ACCESS`, the same as [AUTHENTICATION].
+     */
+    DEVICE_AUTHORIZATION,
 }
 
 /**
