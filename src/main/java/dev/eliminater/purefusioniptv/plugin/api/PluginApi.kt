@@ -36,16 +36,30 @@ object PluginApi {
      *
      * Level 1 is the first level with an explicit number. Plugins built before this existed
      * declared no level at all; the host treats a missing declaration as [LEVEL_UNSPECIFIED].
+     *
+     * **Level 2** repaired the `SyncProvider` schema: `SyncConflict.localData` and `remoteData`
+     * changed from `Any` to [SyncPayload], and `SyncState.Error` dropped its `Throwable` in favour
+     * of a string `errorCode`. Both were unavoidable — neither `Any` nor `Throwable` can cross a
+     * process boundary, so those members could not be served to a plugin running out of process at
+     * all.
      */
-    const val CURRENT: Int = 1
+    const val CURRENT: Int = 2
 
     /**
      * The oldest plugin-declared level this host still accepts.
      *
-     * Equal to [CURRENT] today because nothing has been deprecated yet. It rises only when a
-     * published member is removed or changed incompatibly.
+     * Raised to 2 by the level-2 `SyncProvider` change. The evolution rules above require this: a
+     * plugin compiled against level 1 references `SyncConflict(localData = Any)` and a
+     * two-argument `SyncState.Error`, and both would fail to link inside the plugin's own code.
+     * Rejecting it at install time — where the host can explain that the plugin needs updating —
+     * is the point of having the level at all.
+     *
+     * Only `SyncProvider` implementations are actually affected. `MediaServerProvider` and
+     * `CloudStorageProvider` plugins are unchanged in substance, but they still have to be rebuilt
+     * with `apiLevel = PluginApi.CURRENT`, because the level is declared per plugin rather than
+     * per interface.
      */
-    const val MIN_SUPPORTED: Int = 1
+    const val MIN_SUPPORTED: Int = 2
 
     /** A plugin that declared no API level. Rejected rather than guessed at. */
     const val LEVEL_UNSPECIFIED: Int = 0

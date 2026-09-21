@@ -146,6 +146,7 @@ Packaging format and trust rules are described in [PLUGIN_AUTHOR_GUIDE.md](docs/
 | `MediaServerProvider` | Movies, shows, live TV, search, favorites from a media server |
 | `CloudStorageProvider` | Upload/download/list for cloud backup |
 | `SyncProvider` | Cross-device sync hooks |
+| `SyncPayload` | Serialised record carried by `SyncConflict` (new at API level 2) |
 
 More capability interfaces (EPG, catch-up, UI extensions) may be added in future API versions. Pin a **release tag** and watch [Releases](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases) for breaking changes.
 
@@ -177,6 +178,38 @@ Refusal happens before any plugin class is loaded, and the reason is surfaced to
 > **If you wrote a plugin before `apiLevel` existed:** `Plugin.apiLevel` defaults to
 > `PluginApi.LEVEL_UNSPECIFIED`, so your plugin still *compiles* but will not be loaded. Add the
 > one-line override above.
+
+### Level 2 — breaking change to `SyncProvider`
+
+`MIN_SUPPORTED` is now **2**. Plugins built against level 1 are refused before their code loads,
+and the refusal message tells the user the plugin needs updating.
+
+Two published members changed, and both had to:
+
+| Was (level 1) | Is (level 2) | Why |
+|---------------|--------------|-----|
+| `SyncConflict.localData: Any`, `remoteData: Any` | `SyncPayload` | `Any` has no serialisation, so these could never cross a process boundary — and the host could not display, compare or store a conflict either, because it had no idea what it was holding |
+| `SyncState.Error(message, exception: Throwable?)` | `SyncState.Error(message, errorCode: String?)` | A `Throwable`'s class lives in *your* classloader, so the host has nothing to deserialise it into; its stack trace also routinely carries file paths and request URLs into host logs |
+
+`SyncPayload` is an envelope, not a schema — `contentType`, `content`, and an optional `revision`.
+The host never parses `content`; it only needs enough to move the value, show the user which side
+is which, and hand the chosen one back to `resolveConflict`. Serialise your record however suits
+your backing service.
+
+```kotlin
+SyncConflict(
+    id = remoteRecord.id,
+    dataType = SyncDataType.PLAYLISTS,
+    localData = SyncPayload("application/json", localJson, revision = localEtag),
+    remoteData = SyncPayload("application/json", remoteJson),
+    localTimestamp = localMillis,
+    remoteTimestamp = remoteMillis,
+)
+```
+
+**If you only implement `MediaServerProvider` or `CloudStorageProvider`**, nothing in your code
+changes — but you still need to rebuild with `apiLevel = PluginApi.CURRENT`, because the level is
+declared per plugin rather than per interface.
 
 ---
 
@@ -346,6 +379,35 @@ while returning one as a `ByteArray` would not be.
 resources, which the host process has not loaded. A host running you in a worker reads them as "no
 icon" until host-side resource loading exists.
 
+**Non-suspending members are read once, at start.** `supportsFeature`, `getProviderCapabilities`
+and the identity properties cannot make a call across the boundary — they are not `suspend`, so a
+remote call inside them would block whatever thread asked, possibly the main one. The host reads
+them during startup and holds the answer. Make them cheap and stable: they describe what your
+plugin *is*, not what it is currently doing.
+
+---
+
+## Plugins require Premium
+
+Plugins are a Premium feature, enforced at runtime rather than only in the UI. Lifetime purchases,
+an active subscription, and an active Premium trial all count.
+
+What that means in practice:
+
+- on a free tier, no plugin is enabled, loaded, started, bound to a process, or handed out as a
+  provider — the host behaves as though none were installed;
+- if entitlement lapses **while your plugin is running**, it is unloaded promptly: in-flight calls
+  are cancelled, flow subscriptions end, streams close, and a worker process is terminated. Your
+  `onUnload` runs first, within the usual deadline;
+- when the user becomes entitled again your plugin is eligible immediately, and its next load gets
+  a fresh process and generation. It is not resumed — the previous one is genuinely gone;
+- **an entitlement refusal is never recorded against your plugin.** It does not count as a crash
+  and cannot contribute to quarantine, so a user who lapses and later re-subscribes does not find
+  your plugin blocked.
+
+Nothing is required of you for any of this. There is no entitlement API to call and no state to
+handle; treat an unload caused by a lapse exactly like any other unload.
+
 **What isolation this is.** A worker is a separate process at the **same UID**, so it has the app's
 permissions and can read the app's private files. That is fault isolation and real resource
 reclamation — not a privilege boundary. `android:isolatedProcess` would give the latter, but an
@@ -378,7 +440,7 @@ even if it were sent.
 | [v1.0.0](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.0) | Initial `Plugin` + `MediaServerProvider` |
 | [v1.0.1](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.1) | Adds `CloudStorageProvider` + `SyncProvider` |
 | [v1.0.2](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.2) | README, author guide, Apache 2.0 license |
-| _unreleased_ | Adds `PluginApi` level + `Plugin.apiLevel`; documents `.pfp`, identity, lifecycle and [process isolation](#process-isolation) |
+| _unreleased_ | **API level 2.** Adds `PluginApi` level + `Plugin.apiLevel`; repairs the `SyncProvider` schema (`SyncPayload`, `errorCode`); documents `.pfp`, identity, lifecycle, [process isolation](#process-isolation) and Premium gating |
 
 Set `minAppVersion` to the lowest PureFusion build you support (e.g. `1.0.0-Beta-9.15`), and set
 `apiLevel` to `PluginApi.CURRENT`. They answer different questions — see
@@ -393,7 +455,7 @@ Set `minAppVersion` to the lowest PureFusion build you support (e.g. `1.0.0-Beta
 | `PluginApi` / `apiLevel` | **New.** The rule is implemented and enforced by the host |
 | `.pfp` packaging + manifest schema | **Implemented in the host**, tooling not yet published |
 | Lifecycle state machine | **Implemented in the host**; no plugin-facing API yet beyond `onLoad`/`onUnload` |
-| Out-of-process isolation | **Runtime and transport implemented, not yet the default.** Worker process, unload sequence, and remote proxying for calls, flows, streams and progress. `CloudStorageProvider` is proxied end to end; the other providers are not yet. See [Process isolation](#process-isolation) |
+| Out-of-process isolation | **Runtime and transport implemented, not yet the default.** Worker process, unload sequence, and remote proxying for calls, flows, streams, progress and `StateFlow`. All three providers are proxied end to end. See [Process isolation](#process-isolation) |
 | Third-party signing / trust tiers | **Format reserved, not enforced** for third-party keys |
 
 ---
