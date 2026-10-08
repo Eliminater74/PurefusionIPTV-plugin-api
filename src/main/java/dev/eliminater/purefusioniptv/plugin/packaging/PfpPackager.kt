@@ -42,7 +42,6 @@ import java.util.zip.ZipOutputStream
  * for it.
  */
 object PfpPackager {
-
     /** Canonical extension, matching the host's `PluginPackageFormat`. */
     const val EXTENSION: String = "pfp"
 
@@ -95,11 +94,15 @@ object PfpPackager {
         val developerKeyId: String = "unsigned-dev",
     )
 
-    class PackagingException(message: String) : IllegalArgumentException(message)
+    class PackagingException(
+        message: String,
+    ) : IllegalArgumentException(message)
 
     /** Canonical output name: `<pluginId>-<version>.pfp`. */
-    fun packageFileName(pluginId: String, version: String): String =
-        "$pluginId-$version.$EXTENSION"
+    fun packageFileName(
+        pluginId: String,
+        version: String,
+    ): String = "$pluginId-$version.$EXTENSION"
 
     /**
      * Validates [request] and writes the package to [outputDir].
@@ -107,12 +110,16 @@ object PfpPackager {
      * Every failure is raised before a byte is written, so a rejected build leaves no partial
      * artifact behind.
      */
-    fun build(request: Request, outputDir: File): File {
+    fun build(
+        request: Request,
+        outputDir: File,
+    ): File {
         validate(request)
 
-        val hashes = request.payload.associate { source ->
-            source.relativePath to sha256Hex(source.bytes)
-        }
+        val hashes =
+            request.payload.associate { source ->
+                source.relativePath to sha256Hex(source.bytes)
+            }
         val manifestJson = buildManifestJson(request, hashes)
 
         if (!outputDir.exists() && !outputDir.mkdirs()) {
@@ -223,12 +230,12 @@ object PfpPackager {
     fun isValidPluginId(pluginId: String): Boolean {
         if (pluginId.isBlank() || pluginId.length > MAX_PLUGIN_ID_LENGTH) return false
         val segments = pluginId.split('.')
-        if (segments.size < 2) return false
-        return segments.all { segment ->
-            segment.isNotEmpty() &&
-                segment.first().isLetter() &&
-                segment.all { it.isLetterOrDigit() || it == '_' }
-        }
+        return segments.size >= 2 &&
+            segments.all { segment ->
+                segment.isNotEmpty() &&
+                    segment.first().isLetter() &&
+                    segment.all { it.isLetterOrDigit() || it == '_' }
+            }
     }
 
     /** True when an entry would duplicate a class the host must own. */
@@ -238,11 +245,16 @@ object PfpPackager {
     }
 
     fun sha256Hex(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256")
+        MessageDigest
+            .getInstance("SHA-256")
             .digest(bytes)
             .joinToString("") { "%02x".format(it) }
 
-    private fun writeEntry(zip: ZipOutputStream, name: String, bytes: ByteArray) {
+    private fun writeEntry(
+        zip: ZipOutputStream,
+        name: String,
+        bytes: ByteArray,
+    ) {
         val entry = ZipEntry(name)
         entry.time = FIXED_ENTRY_TIME_MS
         zip.putNextEntry(entry)
@@ -250,15 +262,19 @@ object PfpPackager {
         zip.closeEntry()
     }
 
-    private fun buildManifestJson(request: Request, hashes: Map<String, String>): String {
-        val payloadEntries = request.payload
-            .sortedBy { it.relativePath }
-            .joinToString(",\n") { source ->
-                """        {
+    private fun buildManifestJson(
+        request: Request,
+        hashes: Map<String, String>,
+    ): String {
+        val payloadEntries =
+            request.payload
+                .sortedBy { it.relativePath }
+                .joinToString(",\n") { source ->
+                    """        {
           "path": "${PAYLOAD_PREFIX}${escape(source.relativePath)}",
           "sha256": "${hashes.getValue(source.relativePath)}"
         }"""
-            }
+                }
         val capabilityEntries = request.capabilities.joinToString(", ") { "\"${escape(it)}\"" }
         return """{
   "schemaVersion": ${request.schemaVersion},
@@ -291,8 +307,7 @@ $payloadEntries
 """
     }
 
-    private fun escape(value: String): String =
-        value.replace("\\", "\\\\").replace("\"", "\\\"")
+    private fun escape(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     private const val MAX_PLUGIN_ID_LENGTH = 128
 }
