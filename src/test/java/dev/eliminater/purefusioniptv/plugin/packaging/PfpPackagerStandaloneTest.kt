@@ -15,14 +15,17 @@ import org.junit.Test
  */
 class PfpPackagerStandaloneTest {
 
+    // The signer ships beside the packager and is held to the same standalone rule.
     private val source: String by lazy {
-        listOf(
-            File("src/main/java/dev/eliminater/purefusioniptv/plugin/packaging/PfpPackager.kt"),
-            File("plugin-api/src/main/java/dev/eliminater/purefusioniptv/plugin/packaging/PfpPackager.kt"),
-        ).firstOrNull { it.isFile }
-            ?.readText()
-            ?.replace("\r\n", "\n")
-            ?: error("PfpPackager.kt not found from ${File(".").absolutePath}")
+        listOf("PfpPackager.kt", "PfpSigner.kt").joinToString("\n") { name ->
+            listOf(
+                File("src/main/java/dev/eliminater/purefusioniptv/plugin/packaging/$name"),
+                File("plugin-api/src/main/java/dev/eliminater/purefusioniptv/plugin/packaging/$name"),
+            ).firstOrNull { it.isFile }
+                ?.readText()
+                ?.replace("\r\n", "\n")
+                ?: error("$name not found from ${File(".").absolutePath}")
+        }
     }
 
     private val imports: List<String> by lazy {

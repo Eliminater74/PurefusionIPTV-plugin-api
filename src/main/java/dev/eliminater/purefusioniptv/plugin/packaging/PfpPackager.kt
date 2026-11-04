@@ -32,14 +32,21 @@ import java.util.zip.ZipOutputStream
  *
  * ## Integrity, identity, trust
  *
- * This produces **integrity** only: SHA-256 over every payload file, recorded in the manifest, so
- * the host can detect a changed payload. It does not sign, and it does not decide trust.
- *
- * *Identity* (which key signed it) and *trust* (whether the host honours that key) are separate
- * steps that need a real developer key, which this deliberately does not invent or embed. An
+ * [build] produces **integrity** only: SHA-256 over every payload file, recorded in the manifest,
+ * so the host can detect a changed payload. It does not sign, and it does not decide trust. An
  * unsigned package is a **development** package: usable where the host permits sideload, refused
- * where signatures are required. Signing is future work and the format already carries the fields
- * for it.
+ * where signatures are required.
+ *
+ * *Identity* (which key signed it) is [PfpSigner]: it fills [Request.signing] from a real developer
+ * key and signs the exact manifest bytes this object produces. *Trust* (whether the host honours
+ * that key) is decided by the host and the Marketplace, never by the package.
+ *
+ * ## Entry point spelling
+ *
+ * The manifest's `entrypoints[].type` is the lowercase wire value `plugin`, the same spelling the
+ * host's `PluginEntrypointType` serializes and the Marketplace verifier accepts. Packages built
+ * before F5.3.6 wrote `PLUGIN`. The Android host tolerated that only through Gson's enum-name
+ * fallback, and the Marketplace verifier rejects it.
  */
 object PfpPackager {
     /** Canonical extension, matching the host's `PluginPackageFormat`. */
@@ -50,6 +57,15 @@ object PfpPackager {
     const val DEVELOPER_SIGNATURE_ENTRY: String = "signatures/developer.sig"
     const val MARKETPLACE_SIGNATURE_ENTRY: String = "signatures/marketplace.sig"
     const val DEVELOPER_PUBLIC_KEY_ENTRY: String = "certs/developer-public-key.pem"
+
+    /** Canonical `entrypoints[].type` for a plugin class, matching the host's wire value. */
+    const val ENTRYPOINT_TYPE_PLUGIN: String = "plugin"
+
+    /** The only developer signature algorithm this SDK produces. */
+    const val SIGNATURE_ALGORITHM_ED25519: String = "Ed25519"
+
+    /** Development tier. A signed package must declare a Marketplace tier instead. */
+    const val TRUST_TIER_UNSIGNED_DEV: String = "UNSIGNED_DEV"
 
     /**
      * Fixed timestamp for every entry.
@@ -92,6 +108,23 @@ object PfpPackager {
         val trustTier: String = "UNSIGNED_DEV",
         val capabilities: List<String> = emptyList(),
         val developerKeyId: String = "unsigned-dev",
+        /** Present only on a developer-signed package. [PfpSigner] fills it; callers do not. */
+        val signing: Signing? = null,
+    )
+
+    /**
+     * Signing identity committed inside the signed manifest.
+     *
+     * The Marketplace signs these exact manifest bytes after review, so [developerKeySha256] binds
+     * the developer certificate that sits *outside* `manifest.json` to the approved release.
+     */
+    data class Signing(
+        val developerKeyId: String,
+        /** SHA-256 of the whitespace-free public PEM Base64 body as US-ASCII, lowercase hex. */
+        val developerKeySha256: String,
+        val marketplaceKeyId: String,
+        val developerSignatureAlgorithm: String = SIGNATURE_ALGORITHM_ED25519,
+        val marketplaceSignatureAlgorithm: String = SIGNATURE_ALGORITHM_ED25519,
     )
 
     class PackagingException(
@@ -114,25 +147,50 @@ object PfpPackager {
         request: Request,
         outputDir: File,
     ): File {
-        validate(request)
+        if (request.signing != null) {
+            throw PackagingException("A signed package is built by PfpSigner, which signs it")
+        }
+        return writePackage(request, manifestBytes(request), outputDir, emptyMap())
+    }
 
+    /**
+     * The exact `manifest.json` bytes for [request], after validation.
+     *
+     * A developer signature covers these bytes verbatim, so they are produced in one place.
+     */
+    fun manifestBytes(request: Request): ByteArray {
+        validate(request)
         val hashes =
             request.payload.associate { source ->
                 source.relativePath to sha256Hex(source.bytes)
             }
-        val manifestJson = buildManifestJson(request, hashes)
+        return buildManifestJson(request, hashes).toByteArray(Charsets.UTF_8)
+    }
 
+    /**
+     * Writes the manifest, the sorted payload, then [metadata] entries in their given order.
+     *
+     * Shared by [build] and [PfpSigner], so a signed package differs from an unsigned one only in
+     * its manifest and the added certificate and signature entries.
+     */
+    internal fun writePackage(
+        request: Request,
+        manifestBytes: ByteArray,
+        outputDir: File,
+        metadata: Map<String, ByteArray>,
+    ): File {
         if (!outputDir.exists() && !outputDir.mkdirs()) {
             throw PackagingException("Could not create output directory: ${outputDir.path}")
         }
         val output = File(outputDir, packageFileName(request.pluginId, request.version))
 
         ZipOutputStream(output.outputStream().buffered()).use { zip ->
-            writeEntry(zip, MANIFEST_ENTRY, manifestJson.toByteArray(Charsets.UTF_8))
+            writeEntry(zip, MANIFEST_ENTRY, manifestBytes)
             // Sorted so entry order is a function of the inputs, not of map iteration.
             request.payload.sortedBy { it.relativePath }.forEach { source ->
                 writeEntry(zip, PAYLOAD_PREFIX + source.relativePath, source.bytes)
             }
+            metadata.forEach { (name, bytes) -> writeEntry(zip, name, bytes) }
         }
         return output
     }
@@ -168,6 +226,7 @@ object PfpPackager {
         if (request.payload.isEmpty()) {
             throw PackagingException("A package must contain at least one payload file")
         }
+        request.signing?.let { validateSigning(request, it) }
 
         val seen = HashSet<String>()
         val seenFolded = HashSet<String>()
@@ -192,6 +251,42 @@ object PfpPackager {
                         "different JVM type, which breaks every cast across the boundary.",
                 )
             }
+        }
+    }
+
+    /**
+     * A signed manifest must name a Marketplace tier and well-formed key identities. The
+     * Marketplace refuses anything else, and signing an unpublishable manifest wastes a release.
+     */
+    private fun validateSigning(
+        request: Request,
+        signing: Signing,
+    ) {
+        if (request.trustTier == TRUST_TIER_UNSIGNED_DEV || request.trustTier == "local_untrusted") {
+            throw PackagingException(
+                "A signed package must declare a Marketplace trust tier, not ${request.trustTier}",
+            )
+        }
+        if (!KEY_ID.matches(signing.developerKeyId) || signing.developerKeyId == "unsigned-dev") {
+            throw PackagingException("Invalid developer key id '${signing.developerKeyId}'")
+        }
+        if (signing.developerKeyId != request.developerKeyId) {
+            throw PackagingException("Signing developer key id differs from the request")
+        }
+        if (!SHA256_HEX.matches(signing.developerKeySha256)) {
+            throw PackagingException("developerKeySha256 must be 64 lowercase hex characters")
+        }
+        if (!KEY_ID.matches(signing.marketplaceKeyId)) {
+            throw PackagingException("Invalid Marketplace key id '${signing.marketplaceKeyId}'")
+        }
+        if (signing.developerSignatureAlgorithm != SIGNATURE_ALGORITHM_ED25519) {
+            throw PackagingException("This SDK signs with Ed25519 only")
+        }
+        if (signing.marketplaceSignatureAlgorithm !in MARKETPLACE_ALGORITHMS) {
+            throw PackagingException(
+                "Unsupported Marketplace signature algorithm " +
+                    "'${signing.marketplaceSignatureAlgorithm}'",
+            )
         }
     }
 
@@ -276,6 +371,22 @@ object PfpPackager {
         }"""
                 }
         val capabilityEntries = request.capabilities.joinToString(", ") { "\"${escape(it)}\"" }
+        val signing = request.signing
+        val signingEntries =
+            if (signing == null) {
+                listOf(
+                    "developerKeyId" to request.developerKeyId,
+                    "developerSignatureAlgorithm" to SIGNATURE_ALGORITHM_ED25519,
+                )
+            } else {
+                listOf(
+                    "developerKeyId" to signing.developerKeyId,
+                    "developerKeySha256" to signing.developerKeySha256,
+                    "developerSignatureAlgorithm" to signing.developerSignatureAlgorithm,
+                    "marketplaceKeyId" to signing.marketplaceKeyId,
+                    "marketplaceSignatureAlgorithm" to signing.marketplaceSignatureAlgorithm,
+                )
+            }.joinToString(",\n") { (name, value) -> "    \"$name\": \"${escape(value)}\"" }
         return """{
   "schemaVersion": ${request.schemaVersion},
   "apiLevel": ${request.apiLevel},
@@ -290,7 +401,7 @@ object PfpPackager {
   "minHostVersion": "${escape(request.minHostVersion)}",
   "minSdk": ${request.minSdk},
   "entrypoints": [
-    { "type": "PLUGIN", "className": "${escape(request.entryPointClassName)}" }
+    { "type": "$ENTRYPOINT_TYPE_PLUGIN", "className": "${escape(request.entryPointClassName)}" }
   ],
   "capabilities": [$capabilityEntries],
   "payload": {
@@ -300,8 +411,7 @@ $payloadEntries
     ]
   },
   "signing": {
-    "developerKeyId": "${escape(request.developerKeyId)}",
-    "developerSignatureAlgorithm": "Ed25519"
+$signingEntries
   }
 }
 """
@@ -310,4 +420,9 @@ $payloadEntries
     private fun escape(value: String): String = value.replace("\\", "\\\\").replace("\"", "\\\"")
 
     private const val MAX_PLUGIN_ID_LENGTH = 128
+
+    /** Key id shape the Marketplace backend accepts. */
+    private val KEY_ID = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+    private val SHA256_HEX = Regex("^[a-f0-9]{64}$")
+    private val MARKETPLACE_ALGORITHMS = setOf(SIGNATURE_ALGORITHM_ED25519, "SHA256withRSA")
 }

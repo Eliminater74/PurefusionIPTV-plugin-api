@@ -137,6 +137,19 @@ The host accepts trusted **external plugin packages** (e.g. `.pfp` / runtime dex
 
 **Development:** debug builds may offer **Debug Plugin Import** for local testing.
 
+### Packaging and signing with the SDK
+
+`PfpPackager.build` writes an unsigned development package (`UNSIGNED_DEV`). Its entry point type is the canonical lowercase `plugin`.
+
+For the Marketplace, sign with `PfpSigner.build(request, DeveloperKey(keyId, privateKey, publicKey), "market_root_v1", outputDir)`, with `trustTier = "verified_partner"` in the request. The signer:
+
+- requires an Ed25519 key pair, verifying that the private and public keys match before writing anything;
+- commits `developerKeySha256` (the SHA-256 of the public PEM's Base64 body) in the manifest;
+- signs the exact `manifest.json` bytes;
+- adds `certs/developer-public-key.pem` and `signatures/developer.sig`.
+
+Ed25519 output is deterministic, so the same inputs and key produce identical bytes. Keep the private key outside your repository and back it up. The Marketplace binds your plugin ID to its fingerprint, so a lost key ends update continuity. The Marketplace's own counter-signature is added only at approval.
+
 ---
 
 ## 7. Testing without the app source
