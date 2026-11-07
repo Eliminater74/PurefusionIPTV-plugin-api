@@ -618,6 +618,13 @@ ends in process termination and a crash counter that quarantines a repeatedly dy
 Even once it is, it is not a sandbox: a worker runs at the app's UID with the app's permissions.
 Nothing in this README should be read as claiming plugin code is sandboxed.
 
+**Exception — the experimental isolated lane (November 2026).** A Marketplace-approved package that
+uses only the isolated-runtime extension (`SandboxPluginV1`, and optionally `SandboxSurfacePluginV1`
+with the `SandboxLiveCatalogV1` catalog) runs in an Android isolated-UID process on Android 8.0+, with
+no provider interfaces, no `Context`, and only host-brokered network, storage and Live TV catalog
+access after the TV owner consents. See `docs/SANDBOX_SURFACE_PROTOCOL.md`. It is not yet a published
+API level, and the provider interfaces above still do not run there.
+
 ---
 
 ## License
