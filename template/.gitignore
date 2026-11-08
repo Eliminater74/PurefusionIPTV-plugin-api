@@ -1,0 +1,16 @@
+**/build/
+.gradle/
+.kotlin/
+.idea/
+local.properties
+*.iml
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+.pkeys/
+signing/
+plugin-api/
+marketplace/preview/card.html
+marketplace/listing.local.json

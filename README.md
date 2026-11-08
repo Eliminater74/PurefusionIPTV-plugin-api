@@ -13,6 +13,14 @@ The **PureFusion IPTV application is closed source**. You do **not** need the ap
 
 ---
 
+## Start Building Your First PureFusionIPTV Plugin
+
+Use the **[official working template](template/README.md)** for current isolated API 3 screens/brokers (Android API 26+). It includes its own Gradle wrapper, tests, external developer-key tools, signed single-DEX packaging, listing v1, original artwork and a local card preview.
+
+[Getting Started](template/GETTING_STARTED.md) · [Developer Guide](template/DEVELOPER_GUIDE.md) · [Listing Guide](template/marketplace/LISTING_GUIDE.md) · [Signing](template/docs/SIGNING.md) · [Submission](template/docs/SUBMISSION.md) · [API protocol](docs/SANDBOX_SURFACE_PROTOCOL.md)
+
+Provider examples below describe a different compatibility lane. Local signing is not Marketplace approval. Public third-party executable distribution and website credential delivery remain gated. The template guides supersede historical runtime/signing statements below for new isolated screen plugins.
+
 ## What this repo is
 
 | In this repo | Not in this repo |
@@ -20,6 +28,7 @@ The **PureFusion IPTV application is closed source**. You do **not** need the ap
 | `Plugin` base interface + `PluginCapability` | PureFusion IPTV app source |
 | `PluginApi` level + compatibility rule | Package validation / install pipeline |
 | `PfpPackager` — builds `.pfp` packages | Loader, lifecycle orchestration, signing keys |
+| `PfpSigner` and `template/` — developer signing and starter workflow | Marketplace approval and distribution authority |
 | `MediaServerProvider` (Emby, Jellyfin, Plex, …) | Player, EPG, playlist core |
 | `CloudStorageProvider` (Drive, WebDAV, …) | Closed-source UI |
 | `SyncProvider` | Marketplace signing keys |
@@ -367,9 +376,9 @@ Output is byte-reproducible for identical inputs.
 > **Status:** package *validation* and the install pipeline live in the closed-source host.
 > `PfpPackager` produces **unsigned development packages**: SHA-256 payload hashes give
 > **integrity**, but not **identity** or **trust** (see [Security notice](#security-notice)).
-> Signing requires a real developer key and no developer-facing signing workflow exists yet, so
-> none is invented here. Unsigned packages install where the host permits sideload and are refused
-> where signatures are required.
+> Developer signing now uses your Ed25519 key through `PfpSigner`; see the
+> [template signing workflow](template/docs/SIGNING.md). Unsigned development packages do not
+> qualify for the isolated Marketplace lane.
 
 ---
 
@@ -396,7 +405,7 @@ after `onUnload` is a bug in the plugin.
 A plugin that throws repeatedly is quarantined rather than retried forever — PureFusionIPTV will
 not enter a crash loop on your behalf, and it will still start and run without you.
 
-> **Honest limitation:** plugins currently execute **in the host process** via `DexClassLoader`.
+> **Historical provider limitation:** the paragraph below describes the earlier provider path. New isolated screen plugins use the [template](template/README.md). Legacy code used `DexClassLoader`.
 > The host applies a namespace allow-list, a crash-counting circuit breaker, and exception
 > containment at the call boundary — that is fault *handling*, not a security sandbox. A plugin
 > that blocks the main thread, exhausts memory, or crashes a thread the host does not own can still
@@ -559,8 +568,9 @@ Requirements:
 A consuming build composed with `includeBuild` must use the **same AGP version** — Gradle refuses
 to load two different AGP versions in one composite build.
 
-This repository does **not** ship its own Gradle wrapper. Build it with the wrapper from the
-project that consumes it, or open it as a standalone Android library project in Android Studio:
+The SDK root uses a consuming project's wrapper; the [public template](template/) now includes
+one. Build from the SDK root with `template/gradlew -p . test` (Windows:
+`template\gradlew.bat -p . test`), or use another consuming wrapper / Android Studio:
 
 ```bash
 # from a parent/consuming project that has a wrapper
@@ -583,47 +593,9 @@ Output: `build/outputs/aar/`.
 
 ## Security notice
 
-Plugins run **in-process** with the host app, loaded via `DexClassLoader`. Only install plugins from
-authors you trust.
+Current verified Marketplace DEX plugins run in Android isolated UIDs on API 26+, with narrow brokers, host-rendered descriptors, TV-owned consent and signed admission/revocation. See [capability boundaries](template/docs/CAPABILITIES.md) and [surface protocol](docs/SANDBOX_SURFACE_PROTOCOL.md). Declarations request access; they cannot grant consent or publisher authority. No API-25 same-UID fallback exists.
 
-What the host **does** provide today:
-
-- package validation (manifest schema, plugin id, host version range, payload hashes) before any
-  executable payload is read;
-- a namespace allow-list restricting which host classes plugin code may link against;
-- exception containment at the plugin call boundary, including across `suspend` resumption;
-- a crash-counting circuit breaker that quarantines a repeatedly failing plugin instead of
-  retrying it forever.
-
-What it **does not** provide:
-
-- process, memory or thread isolation **on the path your plugin currently runs on**;
-- protection from a plugin that blocks the main thread, exhausts memory, crashes a thread the host
-  does not own, or calls `System.exit()`;
-- a privilege boundary, even in a worker process — a worker shares the app's UID, permissions and
-  private files;
-- enforced trust separation for third-party signing keys.
-
-These are three different properties and the host currently delivers only the first two:
-**integrity** (the bytes are what the manifest says), **identity** (which key signed them), and
-**trust** (what that key is permitted to do). Trust tiers exist in the manifest format but are not
-enforced for third-party keys.
-
-Out-of-process isolation — hosting plugin code in a separate process behind a Binder contract — now
-exists in the host: a fixed pool of worker processes, one plugin each, with a bounded unload that
-ends in process termination and a crash counter that quarantines a repeatedly dying worker. It is
-**not yet the path your plugin runs on**, because the provider interfaces pass `Flow`,
-`InputStream` and `Context`, none of which cross a Binder transaction unchanged.
-
-Even once it is, it is not a sandbox: a worker runs at the app's UID with the app's permissions.
-Nothing in this README should be read as claiming plugin code is sandboxed.
-
-**Exception — the experimental isolated lane (November 2026).** A Marketplace-approved package that
-uses only the isolated-runtime extension (`SandboxPluginV1`, and optionally `SandboxSurfacePluginV1`
-with the `SandboxLiveCatalogV1` catalog) runs in an Android isolated-UID process on Android 8.0+, with
-no provider interfaces, no `Context`, and only host-brokered network, storage and Live TV catalog
-access after the TV owner consents. See `docs/SANDBOX_SURFACE_PROTOCOL.md`. It is not yet a published
-API level, and the provider interfaces above still do not run there.
+Legacy provider contracts and the exact pinned first-party Emby compatibility release have different constraints. They do not grant third-party plugins app-private data, Android services or arbitrary network destinations. Use the template for new isolated screens; do not copy first-party exceptions. Public distribution remains independently gated.
 
 ---
 

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "pluginId": "dev.pf_example.starter",
+  "displayName": "Your Plugin Name",
+  "developerId": "your_developer_id",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "publisher": "Your Developer Name",
+  "shortDescription": "A short description of what this plugin does",
+  "fullDescription": "Describe what your plugin does, how to use it and why each requested capability is needed.",
+  "category": "ui_extension",
+  "apiLevel": 3,
+  "minHostVersion": "1.0.0",
+  "minSdk": 26,
+  "capabilities": [
+    "PLUGIN_SCOPED_STORAGE",
+    "UI_HOME_EXTENSION"
+  ],
+  "icon": {
+    "assetId": "",
+    "format": "image/png",
+    "width": 256,
+    "height": 256,
+    "byteSize": 0,
+    "altText": "Describe your plugin icon"
+  },
+  "screenshots": [
+    {
+      "assetId": "",
+      "format": "image/png",
+      "width": 1920,
+      "height": 1080,
+      "byteSize": 0,
+      "altText": "Describe your plugin screen",
+      "caption": "Describe the visible feature"
+    }
+  ],
+  "features": [
+    "Describe a useful feature"
+  ],
+  "changelog": "Describe this release",
+  "support": {
+    "url": "https://example.com/support"
+  }
+}

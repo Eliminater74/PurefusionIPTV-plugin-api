@@ -1,5 +1,9 @@
 # PureFusion IPTV — Plugin Author Guide
 
+> New isolated screen plugins should use the [official template](../template/README.md).
+> Its API-26+ runtime, signing and submission guides supersede historical provider instructions
+> below. A locally signed package does not authorize Marketplace execution.
+
 This guide is for developers building **external plugins** against the open [PurefusionIPTV-plugin-api](https://github.com/Eliminater74/PurefusionIPTV-plugin-api) repository.
 
 You do **not** have access to the PureFusion IPTV app source. You only need this API + an installed build of the app on a device or emulator.

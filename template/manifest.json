@@ -1,0 +1,19 @@
+{
+  "pluginId": "dev.pf_example.starter",
+  "developerId": "your_developer_id",
+  "displayName": "Your Plugin Name",
+  "publisher": "Your Developer Name",
+  "description": "A short description of what this plugin does",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "apiLevel": 3,
+  "minSdk": 26,
+  "minHostVersion": "1.0.0",
+  "entryPoint": "dev.example.purefusionstarter.StarterPlugin",
+  "category": "ui_extension",
+  "capabilities": [
+    "PLUGIN_SCOPED_STORAGE",
+    "UI_HOME_EXTENSION"
+  ],
+  "marketplaceKeyId": "market_root_v1"
+}
