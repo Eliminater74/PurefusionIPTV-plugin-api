@@ -47,7 +47,7 @@ The isolated lane requires Android 8.0 (API 26). There is no fallback loader on 
   "card": "<card id>",       // activate
   "dialog": "<dialog id>", "result": "option | extra | confirm | submit | cancel",
   "option": "<option id>", "value": "<search text>", "values": { "<field id>": "<text>" },
-  "legacy": { "digest": "<sha256>", "records": { "<key>": "<record>" } }   // first-party migration only
+  "legacy": { "digest": "<sha256>", "mode": "merge | sync", "records": { "<key>": "<record>" } }   // first-party Sports Hub only
 }
 ```
 
@@ -77,9 +77,24 @@ channels). `section` is sent when the user enters or leaves a section marked `re
   "focus": "<card id>", "focusFirst": false, "focusSection": false,
   "status": "<message>", "error": false,
   "dialog": { ... } | null,
-  "legacyAck": "<sha256>"
+  "legacyAck": "<sha256>",
+  "teamSync": { "base": "<sha256>", "records": { "<key>": "<record>" } }   // first-party Sports Hub only
 }
 ```
+
+**Shared first-party copy (`legacy` / `teamSync`).** Only the verified first-party Sports Hub
+release installed from the Marketplace, with `PLUGIN_SCOPED_STORAGE`, for a signed-in account.
+The host keeps the F15 `sports_team_v1/<league>/<team>` settings as the shared copy of the follows;
+its existing TV-to-TV replication and settings backups carry it. On `open` the host sends the copy
+(`legacy`) whenever it differs from what this plugin namespace last acknowledged, also when empty.
+`mode` is `merge` the first time and after a settings restore (union; nothing is removed) and
+`sync` when another TV changed the copy (three-way against the copy the plugin last merged). Hosts
+before November 2026 send no `mode`, which means `merge`. The plugin acknowledges with
+`legacyAck`. A document may carry `teamSync`: the plugin's complete follow list plus `base`, the
+digest of the copy it last merged. The host writes it back only while the copy is still `base` or
+exactly what the host last wrote for this namespace, so a change made on another TV is never
+overwritten; it is then handed over on the next `open`. Every record must pass the strict F15
+codec or the whole `teamSync` is ignored (the document itself still renders).
 
 A document with `"partial": true` only changes the dialog, status line or focus. `"dialog": null`
 closes the host dialog; omitting `dialog` leaves it unchanged. `"handled": false` on a `back`
