@@ -593,6 +593,24 @@ Output: `build/outputs/aar/`.
 
 ## Security notice
 
+API 3 also has an additive isolated subtitle contract, `SandboxSubtitlePluginV1`, selected by the
+signed manifest category `subtitle_provider`. Implement it alongside `Plugin` and `SandboxPluginV1`
+with an empty legacy `Plugin.capabilities` list. Its separate `pf.subtitle.v1` channel accepts only
+`describe`, `search`, and `download`; it does not use the host-rendered screen protocol.
+`SandboxSubtitleMediaV1`, `SandboxSubtitleRequestV1`, `SandboxSubtitleResultV1`, and
+`SandboxSubtitleResponseV1` document the JSON field names. `contentType` is `MOVIE` or `EPISODE`.
+The host accepts ISO-like language tags, opaque bounded result IDs, at most 100 results, and only
+SRT/VTT file bytes delivered as base64. All rendering and attachment stay in the trusted host.
+
+Requests are limited to 16 KiB, JSON responses to 2 MiB, decoded subtitle data to 512 KiB, and a
+call to 30 seconds. Both directions also have a 384 KiB compressed Binder limit; data that does
+not fit is refused even when below the decoded limit. Cancellation/timeout closes that worker
+tenancy and its brokers; lifecycle activation can start a fresh worker for a later request.
+The host rechecks signed identity, generation, account, enablement, entitlement and trust before
+and after calls. Provider messages are never trusted user-facing errors. Credential fields,
+filesystem paths, arbitrary JSON fields, and legacy `SUBTITLE_ENGINE` privileges are unsupported.
+Current credential-dependent providers remain gated until a reviewed credential broker exists.
+
 Current verified Marketplace DEX plugins run in Android isolated UIDs on API 26+, with narrow brokers, host-rendered descriptors, TV-owned consent and signed admission/revocation. See [capability boundaries](template/docs/CAPABILITIES.md) and [surface protocol](docs/SANDBOX_SURFACE_PROTOCOL.md). Declarations request access; they cannot grant consent or publisher authority. No API-25 same-UID fallback exists.
 
 Legacy provider contracts and the exact pinned first-party Emby compatibility release have different constraints. They do not grant third-party plugins app-private data, Android services or arbitrary network destinations. Use the template for new isolated screens; do not copy first-party exceptions. Public distribution remains independently gated.
