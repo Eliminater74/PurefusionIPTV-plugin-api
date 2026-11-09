@@ -609,7 +609,12 @@ tenancy and its brokers; lifecycle activation can start a fresh worker for a lat
 The host rechecks signed identity, generation, account, enablement, entitlement and trust before
 and after calls. Provider messages are never trusted user-facing errors. Credential fields,
 filesystem paths, arbitrary JSON fields, and legacy `SUBTITLE_ENGINE` privileges are unsupported.
-Current credential-dependent providers remain gated until a reviewed credential broker exists.
+A provider that needs an API key declares `NETWORK_EXTERNAL` (with `permissions.networkExternal`)
+and never holds the key: the TV owner consents to the provider origin and saves the key in host UI
+("Plugin API key"); the host attaches it as `Api-Key`, `X-Api-Key` or `Authorization: Bearer` to
+origin-relative requests only. Download links are fetched as credential-free absolute `https://`
+GETs on hosts of the same registrable domain (see `SandboxCapabilitiesV1.startHttp`). Account
+sign-in flows (password to token exchange) have no broker and stay unsupported.
 
 Current verified Marketplace DEX plugins run in Android isolated UIDs on API 26+, with narrow brokers, host-rendered descriptors, TV-owned consent and signed admission/revocation. See [capability boundaries](template/docs/CAPABILITIES.md) and [surface protocol](docs/SANDBOX_SURFACE_PROTOCOL.md). Declarations request access; they cannot grant consent or publisher authority. No API-25 same-UID fallback exists.
 

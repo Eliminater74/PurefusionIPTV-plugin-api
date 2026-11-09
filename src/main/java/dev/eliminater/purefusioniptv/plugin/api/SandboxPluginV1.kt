@@ -16,7 +16,19 @@ interface SandboxPluginV1 {
 }
 
 interface SandboxCapabilitiesV1 {
-    /** Starts a bounded GET or JSON POST. A positive value is a session-local request ID. */
+    /**
+     * Starts a bounded request. A positive value is a session-local request ID; [SandboxHttpResultV1.BUSY]
+     * means one exchange is already running or the minimum spacing has not elapsed.
+     *
+     * A path beginning with `/` is a GET or JSON POST to the origin the TV owner consented to. If
+     * the owner saved an API key for that origin (host UI "Plugin API key"), the host attaches it as
+     * the chosen header; the plugin never receives or chooses it. Every request carries the host's
+     * `User-Agent: PureFusionIPTV v<version>`.
+     *
+     * An absolute `https://` URL is a credential-free GET of a file on another host of the same
+     * registrable domain as a public consented origin (for example a provider's download host).
+     * The host refuses other hosts, LAN origins, non-443 ports, userinfo and every redirect.
+     */
     fun startHttp(method: String, pathAndQuery: String, jsonBody: ByteArray? = null): Int
 
     /** Poll for headers or a sequential body chunk. A pending result does not consume any data. */
