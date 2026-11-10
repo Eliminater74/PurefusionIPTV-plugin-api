@@ -43,12 +43,10 @@ object PluginApi {
      * process boundary, so those members could not be served to a plugin running out of process at
      * all.
      *
-     * **Level 3** removed `android.content.Context` and `android.content.Intent` from the public
-     * surface entirely. `authenticate(Context): Intent?`, `handleAuthResult(Int, Intent?)` and
-     * `createSettingsIntent(Context): Intent?` became [PluginUiRequest] and [PluginUiResult]; the
-     * two `iconResourceId` properties became package-relative asset paths. Same reason each time:
-     * a worker has no host `Context` to receive, no UI task to launch from, and handing the host
-     * an arbitrary `Intent` is handing it an arbitrary privilege.
+     * **Level 3** removed `android.content.Context` and `android.content.Intent` from the
+     * provider UI methods. [Plugin.onLoad] still accepts a process-local context.
+     * Provider auth and settings now use [PluginUiRequest] and [PluginUiResult]. The two
+     * resource ID properties became package-relative asset paths. The host owns the UI launch.
      */
     const val CURRENT: Int = 3
 
@@ -60,12 +58,6 @@ object PluginApi {
      * `createSettingsIntent(Context)`, neither of which exists any more, so its class would fail
      * to link inside its own code. Rejecting it at install time — where the host can explain that
      * the plugin needs updating — is the point of having the level at all.
-     *
-     * This is the last level at which such a change is cheap. `plugin-api` has not had a public
-     * release, so nothing third-party is being broken; the two first-party plugins are rebuilt
-     * alongside the host. Removing `Context` from a published API later would be far more
-     * expensive than removing it now, which is why both breaking changes were taken in the same
-     * pre-release window rather than deferred.
      */
     const val MIN_SUPPORTED: Int = 3
 

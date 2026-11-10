@@ -3,8 +3,10 @@
 This extension lets an isolated plugin provide a full screen inside PureFusionIPTV without any of
 its code or views entering the app process. It was built to move the F15 Sports Hub out of Core.
 
-It is not a new API level. A host that does not recognise a declaration refuses the package before
-plugin code runs. Two optional interfaces in `dev.eliminater.purefusioniptv.plugin.api` carry it:
+This is an optional extension to API 3. A host that does not recognise a declaration refuses the
+package before plugin code runs. `UI_HOME_EXTENSION` also needs a host launch route. Core currently
+has one for the first-party Sports Hub. The two interfaces below live in
+`dev.eliminater.purefusioniptv.plugin.api`.
 
 | Interface | Implemented by | Purpose |
 | --- | --- | --- |
@@ -22,18 +24,19 @@ them on the Binder wire; the plugin never sees that.
 | `EPG_READ` | `queryLiveCatalog`, only during a `handleSurface` call | "read Live TV channels and guide" |
 | `PLUGIN_SCOPED_STORAGE` | `readStorage`/`writeStorage`/`deleteStorage` | "private plugin data" |
 
-`EPG_READ` without `NETWORK_EXTERNAL` means the rows a plugin reads cannot leave the device. The host
-shows its own consent screen the first time the screen opens, and **Manage → Plugin permissions**
-can revoke it. Consent is bound to the exact signed manifest, publisher key, plugin, account and
-installation, like the other isolated capabilities.
+Without `NETWORK_EXTERNAL`, the plugin has no HTTP broker grant. The host shows its own consent
+screen the first time the screen opens. **Manage → Plugin permissions** can revoke data access.
+Consent is bound to the exact signed manifest, publisher key, plugin, account and installation.
 
 The isolated lane requires Android 8.0 (API 26). There is no fallback loader on Android 7.1.
 
 ## `pf.surface.v1`
 
+The JSONC examples use placeholders to describe the wire shape. Send strict UTF-8 JSON with only the fields applicable to the operation.
+
 ### Request (host → plugin)
 
-```json
+```jsonc
 {
   "schema": "pf.surface.v1",
   "type": "open | continue | refresh | page | section | activate | back | dialog | dialog_input",
@@ -56,7 +59,7 @@ channels). `section` is sent when the user enters or leaves a section marked `re
 
 ### Document (plugin → host)
 
-```json
+```jsonc
 {
   "schema": "pf.surface.v1",
   "state": "<opaque, ≤ 16K chars>",
@@ -76,7 +79,7 @@ channels). `section` is sent when the user enters or leaves a section marked `re
   "loading": false, "continue": false,
   "focus": "<card id>", "focusFirst": false, "focusSection": false,
   "status": "<message>", "error": false,
-  "dialog": { ... } | null,
+  "dialog": null,
   "legacyAck": "<sha256>",
   "teamSync": { "base": "<sha256>", "records": { "<key>": "<record>" } }   // first-party Sports Hub only
 }

@@ -14,7 +14,7 @@ HTTP is denied by default. To enable it, add `NETWORK_EXTERNAL` to root manifest
 
 The example sends `startHttp("GET", "/", null)` relative to the approved origin. It polls on `continue` without blocking on a network call. Pending polls are spaced 100 ms, capped at 50 polls and 256 KiB consumed. It displays status/byte count rather than response content. Cancel, Back, unload, timeout and denied/failed polls cancel the exchange. Request IDs never cross generations.
 
-Broker bounds: one exchange per worker, three jobs overall, >=500 ms start spacing, response <=2 MiB, chunks <=32 KiB; GET or separately consented JSON POST <=16 KiB. No custom headers, cookies, credentials, redirects or arbitrary origins. Public origins require HTTPS DNS; RFC1918 IPv4 servers need explicit consent. The template ships no endpoint/token and no origin chosen on the user's behalf.
+Broker bounds: one exchange per worker, three jobs overall, >=500 ms start spacing, response <=2 MiB, chunks <=32 KiB; GET or separately consented JSON POST <=16 KiB. Plugin code cannot supply headers, cookies or credentials, and the broker refuses redirects. The TV owner can save an origin-bound key through the host UI where supported. Only the host attaches it, and only on the approved origin. An absolute URL is allowed for a credential-free HTTPS GET to another host under the same registrable domain of a consented public origin, on port 443. LAN origins have no sibling-host access. Public origins require HTTPS DNS and RFC1918 IPv4 origins need explicit consent. The template ships without a configured origin or key.
 
 ## Catalog (documented only)
 

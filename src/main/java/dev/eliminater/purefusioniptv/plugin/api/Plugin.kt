@@ -5,18 +5,12 @@ import android.content.Context
 /**
  * Base interface for all PureFusionIPTV plugins.
  *
- * Plugins extend the app's functionality with custom implementations of:
- * - EPG providers (custom TV guide sources)
- * - Catch-up systems (VOD/time-shift playback)
- * - Metadata providers (movie/show information)
- * - Subtitle engines (custom subtitle formats)
- * - Analytics (usage tracking)
+ * Installed executable packages identify their entry point in the manifest. A plugin that uses
+ * ServiceLoader for discovery registers this interface's fully qualified name.
  *
- * Plugins are discovered via ServiceLoader or explicit registration.
- *
- * The current runtime provides version compatibility checks and crash containment,
- * but it is not a true security sandbox. Plugins still run in-process and should be
- * treated as trusted code until the managed package/trust architecture exists.
+ * Admitted Marketplace executables normally run in an isolated UID on Android API 26 or later.
+ * The host has a separate app-UID compatibility worker for a pinned first-party Emby release.
+ * A [PluginCapability] value describes a provider role and does not grant host access.
  */
 interface Plugin {
     /**
@@ -70,34 +64,19 @@ interface Plugin {
     val capabilities: List<PluginCapability>
 
     /**
-     * Called when the plugin is loaded.
+     * Initializes a capability-free isolated executable or a compatibility entry point.
      *
-     * ## Why this still takes a `Context` when nothing else does
+     * Isolated entries with manifest capabilities, and isolated subtitle providers, receive
+     * [SandboxPluginV1.onSandboxLoad] instead. For a capability-free isolated executable, the
+     * local context still has only the isolated UID's access. The pinned compatibility worker
+     * receives its own application context under the app UID.
      *
-     * Plugin API level 3 removed `Context` from every other member, and this one was examined
-     * alongside them and deliberately kept.
-     *
-     * The others were removed because they asked the *host* to hand its own `Context` across a
-     * process boundary. This one does not: when your plugin runs in a worker process, the
-     * `Context` you receive is that worker's own application context, constructed in the process
-     * your code is executing in. It is a real, usable `Context` for the things a plugin legitimately
-     * needs — `SharedPreferences`, a cache directory, a `ConnectivityManager` — and none of them
-     * reach into the host.
-     *
-     * So it is not a host object crossing a boundary; it is your process's own context, handed to
-     * you locally. Removing it would cost plugins real functionality and buy no isolation: your
-     * worker already runs under the app's UID, and this `Context` grants nothing beyond that.
-     *
-     * What it is **not** is a route to the host. There is no host `Activity`, no host singleton,
-     * and no host component reachable through it. To have the host show something, describe it
-     * with [PluginUiRequest].
-     *
-     * @param context your own process's application context.
+     * @param context application context created in the process that runs the plugin.
      */
     fun onLoad(context: Context)
 
     /**
-     * Called when plugin is unloaded or app is shutting down
+     * Releases resources during graceful unload. Process termination can skip this callback.
      */
     fun onUnload()
 

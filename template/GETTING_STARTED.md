@@ -1,6 +1,6 @@
 # Getting started
 
-1. **Download the public Plugin API.** Clone `https://github.com/Eliminater74/PurefusionIPTV-plugin-api.git` and use a revision containing `template/` and `SandboxSurfaceV1.kt`. SDK baseline used here: `a676139c4dae372c95f82c52bb5c5fb550b2caa9` (API 3 extensions). Older v1.0.2 source does not contain this starter or all sandbox contracts. Pin your chosen revision. Source substitution resolves artifact coordinate `dev.eliminater.purefusioniptv:plugin-api:1.0.0`; no private Maven repository is needed.
+1. **Download the public Plugin API.** Clone `https://github.com/Eliminater74/PurefusionIPTV-plugin-api.git` and use a revision containing `template/` and `SandboxSurfaceV1.kt`. The v1.0.2 source release predates the starter and isolated extensions. If you need subtitle support, also check for `SandboxSubtitleV1.kt`. Pin your chosen revision. Source substitution resolves artifact coordinate `dev.eliminater.purefusioniptv:plugin-api:1.0.0`; no private Maven repository is needed.
 2. **Open `template/` in Android Studio.** Install Platform 36 and Build Tools 36.0.0. Configure a Gradle-supported JDK 17+. Set `ANDROID_HOME` to your SDK; with `local.properties`, both template and SDK need a location, so environment configuration is simplest. Gradle downloads dependencies on first use. AGP 9.2.1 includes Kotlin support; do not apply Kotlin Android separately.
 3. **Customize identity.** The developer portal supplies your developer ID and namespace. For local work a synthetic identity is fine. Replace every argument:
 
@@ -34,7 +34,7 @@
 
 ## Copy into your own repository
 
-A copied template discovers an inner `plugin-api/` or sibling `../plugin-api` public checkout, or use `-PpluginApiDir=/absolute/path/to/sdk`. Pin a public revision containing these contracts. No Core files are needed. Keys must stay outside the entire Git checkout, including when this project is nested within a larger repository.
+A copied template discovers an inner `plugin-api/` or sibling `../plugin-api` public checkout. You can also use `-PpluginApiDir=/absolute/path/to/sdk`. Pin a public revision containing these contracts. No Core files are needed. Keys must stay outside the entire Git checkout, including when this project is nested within a larger repository.
 
 ## On-TV testing prerequisite
 

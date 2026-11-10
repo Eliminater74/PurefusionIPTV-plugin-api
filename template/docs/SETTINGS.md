@@ -6,4 +6,4 @@ These are in-screen non-secret preferences. They do not advertise a generic Plug
 
 Current website schema: declarative v1 (`schemaVersion`, `revision`, `fields` with text/url/number/toggle/select types). Core accepts it only through a reviewed host adapter bound to exact plugin, developer key and manifest. API 3 has **no generic apply-configuration method**; the registry defaults to no adapters. A settings-schema JSON file in a `.pfp` cannot register an adapter. This template therefore documents that schema boundary rather than shipping a fake remote configuration example. Public delivery requires further SDK/host work and review.
 
-API-key/password/OAuth delivery is security-gated and unavailable to this example. Never bypass it with hidden text fields, URL tokens, scoped storage, logs or host-private files.
+Website delivery of API keys, passwords and OAuth tokens is security-gated. TV-owned HTTP credential entry and first-party provider sign-in belong to the host broker. Keep secrets out of plugin forms, URLs, scoped storage and logs.
