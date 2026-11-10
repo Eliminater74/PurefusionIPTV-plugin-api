@@ -11,7 +11,7 @@ exports.projectApprovedMarketplaceItem = projectApprovedMarketplaceItem;
 const node_crypto_1 = require("node:crypto");
 const CATEGORIES = new Set([
     "epg_metadata", "service_integration", "ui_extension", "media_server",
-    "sync", "theme_pack", "runtime_extension",
+    "sync", "theme_pack", "runtime_extension", "subtitle_provider",
 ]);
 const CAPABILITIES = new Set([
     "EPG_READ", "EPG_WRITE", "PLAYLIST_IMPORT", "METADATA_READ", "CATCHUP_PROVIDER",

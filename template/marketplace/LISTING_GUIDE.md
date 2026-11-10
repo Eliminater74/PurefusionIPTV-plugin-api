@@ -52,7 +52,7 @@ Omit optional fields when absent. Explicit `null`, unknown keys at any level, un
 | `changelog` | Required for updates, optional for first publication | One plain text string for this release, 1–2,000 characters. Legacy reviewer queue uses its existing `releaseNotes` label. |
 | `support` | Required | Object containing only `url`, a credential-free `https://` link on a dotted ASCII hostname, 512 characters maximum. No port. This is a user-facing support link. |
 
-The starter’s offline validator accepts `epg_metadata`, `service_integration`, `ui_extension`, `media_server`, `sync`, `theme_pack`, and `runtime_extension`. The current host and Marketplace also recognize `subtitle_provider`. This snapshot of the offline validator rejects that newer category. Use the authorized provider submission path and see the [subtitle contract](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/wiki/Subtitle-Plugins.md).
+The starter’s offline validator accepts `epg_metadata`, `service_integration`, `ui_extension`, `media_server`, `sync`, `theme_pack`, `runtime_extension`, and `subtitle_provider`. For the provider submission path, see the [subtitle contract](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/wiki/Subtitle-Plugins.md).
 
 Capabilities are `EPG_READ`, `EPG_WRITE`, `PLAYLIST_IMPORT`, `METADATA_READ`, `CATCHUP_PROVIDER`, `MEDIA_SERVER_ACCESS`, `SYNC_READ`, `SYNC_WRITE`, `CLOUD_STORAGE_ACCESS`, `UI_SETTINGS_EXTENSION`, `UI_HOME_EXTENSION`, `UI_PLAYER_ACTION`, `NETWORK_EXTERNAL`, `FILE_EXPORT`, `BACKGROUND_SYNC`, `ANALYTICS_EVENT_WRITE`, and `PLUGIN_SCOPED_STORAGE` (experimental Core broker).
 

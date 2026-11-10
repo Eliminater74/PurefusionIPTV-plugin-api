@@ -1,7 +1,7 @@
 # Listing contract provenance
 
-listing-contract.cjs is the standalone CommonJS transpilation of the PureFusionIPTV Marketplace listing validator, functions/src/pluginMarketplaceListing.ts, reviewed at Core 65197e85b0da8ce6a47dbf97bfcfe987bc39e955.
+`listing-contract.cjs` mirrors `functions/src/pluginMarketplaceListing.ts` at Core revision `54238a155c4eea5e3ac8c7e1a5e80c3c0550a8dd`. Core commit `231f2ea5027f55ec327254ddfcaceabb31373886` added `subtitle_provider` to the category allowlist.
 
-Source SHA-256: 6bc19d0ac248dd0fbd7f84a12925b394eb36724b8ed4d03cd08c021162c1a286
+SHA-256 of the exact TypeScript source bytes reviewed is `b4bc01e328f987419e84b8a18f3a6d526e0481497b5a0f68b0d2ad124cb53d9f`.
 
-It depends only on Node's crypto module. No Firebase, private Core source, npm install, account, or secrets are needed. It validates the listing v1 shape and manifest binding at that revision. The current backend is authoritative. In particular, the backend recognizes `subtitle_provider`, which this snapshot does not accept. Original project authors: PureFusionIPTV contributors. Distributed as part of this SDK under its LICENSE.
+The vendored file matches the TypeScript 5.9.3 CommonJS/ES2022 output apart from its provenance header. It depends only on Node's crypto module and runs without Firebase, Core, an npm install, an account, or secrets. The current backend is authoritative for Marketplace publication. The PureFusionIPTV contributors wrote the original validator. This SDK distributes it under its LICENSE.
