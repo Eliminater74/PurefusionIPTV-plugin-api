@@ -1,0 +1,73 @@
+name: Plugin SDK CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify SDK, starter, and Marketplace tooling
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out public SDK
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Android Platform 36 and Build Tools 36.0.0
+        run: |
+          if [[ ! -f "$ANDROID_HOME/platforms/android-36/android.jar" ||
+                ! -x "$ANDROID_HOME/build-tools/36.0.0/aapt2" ]]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+              "platforms;android-36" "build-tools;36.0.0"
+          fi
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/aapt2"
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Test offline Marketplace listing validation
+        run: node --test template/tools/test/workflow.test.cjs
+
+      - name: Build SDK and test API compatibility and packaging
+        run: bash template/gradlew --no-daemon --console=plain assembleDebug testDebugUnitTest
+
+      - name: Test starter and verify development and developer-signed packages
+        working-directory: template
+        run: |
+          umask 077
+          signing_tmp="$(mktemp -d "$RUNNER_TEMP/pfp-signing.XXXXXXXX")"
+          trap 'rm -rf -- "$signing_tmp"' EXIT
+          export ANDROID_USER_HOME="$signing_tmp/android"
+          mkdir "$ANDROID_USER_HOME"
+
+          bash gradlew --no-daemon --console=plain \
+            :plugin:testDebugUnitTest :packaging:test :packaging:packageDevelopment
+
+          export PUREFUSION_PFP_SIGNING_DIR="$signing_tmp/developer"
+          bash gradlew --no-daemon --console=plain \
+            :packaging:createSigningKey :packaging:checkSigningKey \
+            :packaging:packageSigned :packaging:verifySignedPfp

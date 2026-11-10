@@ -21,7 +21,9 @@ private fun sha(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(
 fun main(args: Array<String>) {
     val (mode, outputPath, signingPath, filePath) = args
     val c = config()
-    require(c.number("apiLevel") == PluginApi.CURRENT && c.number("minSdk") >= 26) { "Use API 3 and minSdk >=26" }
+    require(c["apiLevel"] == PluginApi.CURRENT && c.number("minSdk") >= 26) {
+        "Use API ${PluginApi.CURRENT} and minSdk >=26"
+    }
     val keyDir = signingPath.takeIf { it.isNotBlank() }?.let(::File)
     if (mode == "keygen") { createKey(requireNotNull(keyDir) { "Set PUREFUSION_PFP_SIGNING_DIR outside the checkout" }, File(".")); println("Created external Ed25519 key; back it up securely."); return }
     if (mode == "keycheck") { println("Developer key fingerprint: " + PfpSigner.developerKeySha256(PfpSigner.publicKeyPem(readKey(requireNotNull(keyDir) { "Set PUREFUSION_PFP_SIGNING_DIR" }).publicKey))); return }
@@ -45,18 +47,27 @@ fun main(args: Array<String>) {
         version = c.text("version"), versionCode = c.number("versionCode"), apiLevel = c.number("apiLevel"),
         minHostVersion = c.text("minHostVersion"), minSdk = c.number("minSdk"), entryPointClassName = c.text("entryPoint"),
         category = c.text("category"), capabilities = (c["capabilities"] as List<*>).map { it as String },
-        trustTier = if (mode == "signed") "verified_partner" else "UNSIGNED_DEV",
+        trustTier = if (mode == "signed") "verified_partner" else PfpPackager.TRUST_TIER_UNSIGNED_DEV,
         payload = listOf(PfpPackager.PayloadSource("classes.dex", dex), PfpPackager.PayloadSource("assets/icon.png", File("marketplace/artwork/plugin-icon-placeholder.png").readBytes())),
     )
     val output = File(outputPath)
-    val file = if (mode == "development") PfpPackager.build(request, output) else {
-        val key = readKey(requireNotNull(keyDir) { "Set PUREFUSION_PFP_SIGNING_DIR; signing never creates a key automatically" })
-        val candidate = PfpSigner.build(request, key, c.text("marketplaceKeyId"), output)
-        try { bindConfig(c, verifyPackage(candidate, key.publicKey)) } catch (e: Exception) { candidate.delete(); throw e }
-        candidate
+    val key = if (mode == "signed") {
+        readKey(requireNotNull(keyDir) { "Set PUREFUSION_PFP_SIGNING_DIR; signing never creates a key automatically" })
+    } else null
+    val file = if (key == null) PfpPackager.build(request, output) else {
+        PfpSigner.build(request, key, c.text("marketplaceKeyId"), output)
     }
-    ZipFile(file).use { zip -> output.resolve("manifest.json").writeBytes(zip.getInputStream(zip.getEntry("manifest.json")).readBytes()) }
-    println("Built ${file.name}; developer signature is not Marketplace approval.")
+    try {
+        val manifest = if (key == null) verifyDevelopmentPackage(file) else verifyPackage(file, key.publicKey)
+        bindConfig(c, manifest)
+        ZipFile(file).use { zip ->
+            output.resolve("manifest.json").writeBytes(zip.getInputStream(zip.getEntry("manifest.json")).readBytes())
+        }
+    } catch (e: Exception) {
+        file.delete()
+        throw e
+    }
+    println("Built and verified ${file.name} ($mode)")
 }
 
 private fun bindConfig(c: Map<*, *>, m: Map<*, *>) {
@@ -67,7 +78,12 @@ private fun bindConfig(c: Map<*, *>, m: Map<*, *>) {
 }
 
 /** Local preflight uses the production entry layout, Ed25519 exact-byte signature and PEM-body fingerprint. */
-fun verifyPackage(file: File, expectedKey: PublicKey? = null): Map<*, *> {
+fun verifyPackage(file: File, expectedKey: PublicKey? = null): Map<*, *> =
+    verifyArchive(file, signed = true, expectedKey = expectedKey)
+
+fun verifyDevelopmentPackage(file: File): Map<*, *> = verifyArchive(file, signed = false)
+
+private fun verifyArchive(file: File, signed: Boolean, expectedKey: PublicKey? = null): Map<*, *> {
     require(file.isFile && file.length() in 1..64L * 1024 * 1024) { "Missing or oversized .pfp" }
     ZipFile(file).use { zip ->
         val entries = zip.entries().asSequence().toList()
@@ -92,8 +108,11 @@ fun verifyPackage(file: File, expectedKey: PublicKey? = null): Map<*, *> {
         val manifestBytes = requireNotNull(data["manifest.json"]) { "Missing manifest" }
         require(manifestBytes.size <= 262144)
         val manifest = JsonSlurper().parse(manifestBytes) as Map<*, *>
-        require(manifest["schemaVersion"] == 1 && manifest["apiLevel"] == 3 && manifest.number("minSdk") >= 26)
-        require(manifest["installType"] == "executable_bundle" && manifest["trustTier"] == "verified_partner")
+        require(manifest["schemaVersion"] == 1) { "Unsupported or invalid manifest schema" }
+        require(manifest["apiLevel"] == PluginApi.CURRENT) { "Unsupported or invalid Plugin API level" }
+        require(manifest.number("minSdk") >= 26)
+        val trustTier = if (signed) "verified_partner" else PfpPackager.TRUST_TIER_UNSIGNED_DEV
+        require(manifest["installType"] == "executable_bundle" && manifest["trustTier"] == trustTier)
         require(Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+").matches(manifest.text("pluginId")))
         val payload = manifest["payload"] as Map<*, *>
         require(payload["hashAlgorithm"] == "SHA-256")
@@ -104,11 +123,13 @@ fun verifyPackage(file: File, expectedKey: PublicKey? = null): Map<*, *> {
         val entrypoints = manifest["entrypoints"] as? List<*> ?: error("Missing entrypoint")
         val entrypoint = entrypoints.singleOrNull() as? Map<*, *> ?: error("Expected one plugin entrypoint")
         require(entrypoint["type"] == "plugin" && Regex("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+").matches(entrypoint.text("className"))) { "Invalid plugin entrypoint" }
-        val expected = setOf("manifest.json", "certs/developer-public-key.pem", "signatures/developer.sig") + declared
+        val expected = (if (signed) setOf("manifest.json", "certs/developer-public-key.pem", "signatures/developer.sig")
+            else setOf("manifest.json")) + declared
         require(names.toSet() == expected) { "Unexpected or missing package entries" }
         for (item in files) {
             val f = item as Map<*, *>; require(sha(requireNotNull(data[f.text("path")])) == f["sha256"]) { "Payload integrity failure" }
         }
+        if (!signed) return manifest
         val pem = String(requireNotNull(data["certs/developer-public-key.pem"]), Charsets.US_ASCII)
         val public = KeyFactory.getInstance("Ed25519").generatePublic(X509EncodedKeySpec(decodePem(pem, "PUBLIC KEY")))
         if (expectedKey != null) require(public.encoded.contentEquals(expectedKey.encoded)) { "Wrong developer key" }

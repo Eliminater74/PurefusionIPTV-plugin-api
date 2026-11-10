@@ -27,6 +27,20 @@ Build Android TV plugins independently of the PureFusionIPTV application. This o
 4. Follow [Signing](template/docs/SIGNING.md) to create or reuse an external Ed25519 key, run `:packaging:packageSigned` and check it with `:packaging:verifySignedPfp`. The package contains one DEX and a signed manifest with payload hashes. Developer signing proves key possession. Isolated Marketplace execution also requires Marketplace signing and admission.
 5. Complete the [listing card and artwork](template/marketplace/LISTING_GUIDE.md), then run `node tools/marketplace.cjs prepare`, `validate` and `preview` as separate commands. Enter the assigned identity and listing fields manually in the developer portal. Follow [Submission](template/docs/SUBMISSION.md) for review, approved audience, install and update requirements. Keep the plugin ID and signer and increase `versionCode` for updates.
 
+## Continuous integration
+
+[Plugin SDK CI](.github/workflows/ci.yml) runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. It builds the SDK and starter, runs the API compatibility and packaging tests, verifies a generated development package and a package signed with a disposable Ed25519 key, and runs the offline Marketplace listing tests, including `subtitle_provider`.
+
+From the SDK root, set `ANDROID_HOME` to an SDK with Platform 36 and Build Tools 36.0.0. Use JDK 25 and Node.js 24 to match CI.
+
+```sh
+bash template/gradlew --no-daemon assembleDebug testDebugUnitTest
+bash template/gradlew -p template --no-daemon :plugin:testDebugUnitTest :packaging:test :packaging:packageDevelopment
+node --test template/tools/test/workflow.test.cjs
+```
+
+On Windows, use `.\template\gradlew.bat` with the same arguments. To reproduce the signed-package check, use a fresh disposable key directory outside every Git checkout and follow the [developer signing steps](template/docs/SIGNING.md). CI uses the public checkout and requires no repository secrets. Marketplace approval, backend contract updates, and Android TV runtime behavior require separate verification.
+
 ## What plugins can do
 
 - **Host-rendered TV screens.** The API 3 [surface protocol](docs/SANDBOX_SURFACE_PROTOCOL.md) supports bounded screen descriptors, host-owned navigation and forms. Sports Hub uses this path with a reserved host entry point. Generic third-party screen launch is unavailable.

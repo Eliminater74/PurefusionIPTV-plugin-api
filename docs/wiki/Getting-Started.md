@@ -13,4 +13,6 @@
 
 The composite build substitutes public SDK source for `dev.eliminater.purefusioniptv:plugin-api:1.0.0`. The plugin uses `compileOnly` so the runtime supplies API classes. The APK is intermediate. For device acceptance, use an authorized host integration and Marketplace release. Continue with [Packaging & Signing](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/wiki/Packaging-and-Signing).
 
+For the repository-wide checks and local reproduction commands, see [Continuous integration](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/README.md#continuous-integration).
+
 [Wiki Home](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/wiki/Home)

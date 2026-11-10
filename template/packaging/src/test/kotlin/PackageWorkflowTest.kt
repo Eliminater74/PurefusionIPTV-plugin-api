@@ -1,14 +1,21 @@
+import dev.eliminater.purefusioniptv.plugin.api.PluginApi
 import dev.eliminater.purefusioniptv.plugin.packaging.PfpPackager
 import dev.eliminater.purefusioniptv.plugin.packaging.PfpSigner
 import org.junit.Assert.*
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.File
 import java.nio.file.Files
 import java.security.KeyPairGenerator
 import java.util.zip.ZipEntry
+import java.util.zip.ZipException
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
 class PackageWorkflowTest {
+    @get:Rule val fixtures: TemporaryFolder = TemporaryFolder.builder().assureDeletion().build()
+
     private fun request() = PfpPackager.Request("dev.example.test", "Test", "example", "1.0.0", 1, 3,
         "1.0.0", 26, "dev.example.Test", listOf(PfpPackager.PayloadSource("classes.dex", "dex\n035\u0000fixture".toByteArray())),
         category = "ui_extension", trustTier = "verified_partner", capabilities = listOf("UI_HOME_EXTENSION"))
@@ -23,15 +30,88 @@ class PackageWorkflowTest {
             assertEquals("dev.example.test", verifyPackage(file, k.publicKey)["pluginId"])
             assertThrows(IllegalArgumentException::class.java) { verifyPackage(file, key().publicKey) }
             val tampered = dir.resolve("tampered.pfp")
-            ZipFile(file).use { zip -> ZipOutputStream(tampered.outputStream()).use { out ->
-                zip.entries().asSequence().forEach { entry ->
+            rewritePackage(file, tampered) { name, bytes ->
+                if (name == "payload/classes.dex") "tampered".toByteArray() else bytes
+            }
+            assertEquals("Payload integrity failure",
+                assertThrows(IllegalArgumentException::class.java) { verifyPackage(tampered, k.publicKey) }.message)
+        } finally { dir.deleteRecursively() }
+    }
+
+    @Test fun developmentPackageVerifiesWithCurrentApiAndCannotPassSignedPreflight() {
+        val file = developmentFixture()
+        val manifest = verifyDevelopmentPackage(file)
+        assertEquals("dev.example.test", manifest["pluginId"])
+        assertEquals(PluginApi.CURRENT, manifest["apiLevel"])
+        assertThrows(IllegalArgumentException::class.java) { verifyPackage(file) }
+    }
+
+    @Test fun truncatedArchiveIsRejected() {
+        val source = developmentFixture()
+        val truncated = fixtures.newFile("truncated.pfp")
+        truncated.writeBytes(source.readBytes().copyOf(32))
+        assertThrows(ZipException::class.java) { verifyDevelopmentPackage(truncated) }
+    }
+
+    @Test fun missingManifestOrDexIsRejected() {
+        val source = developmentFixture()
+        for ((index, missing) in listOf("manifest.json", "payload/classes.dex").withIndex()) {
+            val incomplete = fixtures.newFile("incomplete-$index.pfp")
+            rewritePackage(source, incomplete) { name, bytes -> bytes.takeUnless { name == missing } }
+            val expected = if (missing == "manifest.json") "Missing manifest" else "Unexpected or missing package entries"
+            assertEquals(expected, assertThrows(IllegalArgumentException::class.java) {
+                verifyDevelopmentPackage(incomplete)
+            }.message)
+        }
+    }
+
+    @Test fun incompatibleOrMalformedApiDeclarationsAreRejected() {
+        val source = developmentFixture()
+        val invalidLevels = listOf("null", "\"3\"", "3.5", "0",
+            (PluginApi.MIN_SUPPORTED - 1).toString(), (PluginApi.CURRENT + 1).toString())
+        for ((index, value) in invalidLevels.withIndex()) {
+            val invalid = fixtures.newFile("invalid-api-$index.pfp")
+            rewritePackage(source, invalid) { name, bytes ->
+                if (name == "manifest.json") {
+                    bytes.decodeToString().replace("\"apiLevel\": ${PluginApi.CURRENT}", "\"apiLevel\": $value").toByteArray()
+                } else bytes
+            }
+            assertEquals("Unsupported or invalid Plugin API level", assertThrows(IllegalArgumentException::class.java) {
+                verifyDevelopmentPackage(invalid)
+            }.message)
+        }
+    }
+
+    @Test fun malformedSchemaMetadataIsRejected() {
+        val source = developmentFixture()
+        val invalid = fixtures.newFile("invalid-metadata.pfp")
+        rewritePackage(source, invalid) { name, bytes ->
+            if (name == "manifest.json") {
+                bytes.decodeToString().replace("\"schemaVersion\": 1", "\"schemaVersion\": \"1\"").toByteArray()
+            } else bytes
+        }
+        assertEquals("Unsupported or invalid manifest schema", assertThrows(IllegalArgumentException::class.java) {
+            verifyDevelopmentPackage(invalid)
+        }.message)
+    }
+
+    private fun developmentFixture() = PfpPackager.build(
+        request().copy(apiLevel = PluginApi.CURRENT, trustTier = PfpPackager.TRUST_TIER_UNSIGNED_DEV),
+        fixtures.newFolder(),
+    )
+
+    private fun rewritePackage(source: File, target: File, transform: (String, ByteArray) -> ByteArray?) {
+        ZipFile(source).use { zip ->
+            ZipOutputStream(target.outputStream()).use { out ->
+                for (entry in zip.entries()) {
+                    val original = zip.getInputStream(entry).use { it.readBytes() }
+                    val bytes = transform(entry.name, original) ?: continue
                     out.putNextEntry(ZipEntry(entry.name))
-                    out.write(if (entry.name == "payload/classes.dex") "tampered".toByteArray() else zip.getInputStream(entry).readBytes())
+                    out.write(bytes)
                     out.closeEntry()
                 }
-            } }
-            assertThrows(IllegalArgumentException::class.java) { verifyPackage(tampered, k.publicKey) }
-        } finally { dir.deleteRecursively() }
+            }
+        }
     }
     @Test fun privateKeyMaterialInPayloadIsRejected() {
         val dir = Files.createTempDirectory("pfp-leak").toFile()
