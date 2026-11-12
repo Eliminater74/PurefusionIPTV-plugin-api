@@ -47,8 +47,10 @@ object PluginApi {
      * provider UI methods. [Plugin.onLoad] still accepts a process-local context.
      * Provider auth and settings now use [PluginUiRequest] and [PluginUiResult]. The two
      * resource ID properties became package-relative asset paths. The host owns the UI launch.
+     *
+     * **Level 4** adds the isolated DVR provider contract. Level 3 entry points remain compatible.
      */
-    const val CURRENT: Int = 3
+    const val CURRENT: Int = 4
 
     /**
      * The oldest plugin-declared level this host still accepts.

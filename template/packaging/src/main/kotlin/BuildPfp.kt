@@ -1,4 +1,5 @@
 import dev.eliminater.purefusioniptv.plugin.api.PluginApi
+import dev.eliminater.purefusioniptv.plugin.api.PluginApiCompatibilityCheck
 import dev.eliminater.purefusioniptv.plugin.packaging.PfpPackager
 import dev.eliminater.purefusioniptv.plugin.packaging.PfpSigner
 import groovy.json.JsonSlurper
@@ -16,13 +17,15 @@ import java.util.zip.ZipFile
 private fun config() = JsonSlurper().parse(File("manifest.json")) as Map<*, *>
 private fun Map<*, *>.text(key: String) = this[key] as? String ?: error("Missing $key")
 private fun Map<*, *>.number(key: String) = (this[key] as? Number)?.toInt() ?: error("Missing $key")
+private fun acceptsApiLevel(level: Any?) =
+    level is Int && PluginApiCompatibilityCheck.evaluate(level).isCompatible
 private fun sha(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
 fun main(args: Array<String>) {
     val (mode, outputPath, signingPath, filePath) = args
     val c = config()
-    require(c["apiLevel"] == PluginApi.CURRENT && c.number("minSdk") >= 26) {
-        "Use API ${PluginApi.CURRENT} and minSdk >=26"
+    require(acceptsApiLevel(c["apiLevel"]) && c.number("minSdk") >= 26) {
+        "Use an API level in ${PluginApi.MIN_SUPPORTED}..${PluginApi.CURRENT} and minSdk >=26"
     }
     val keyDir = signingPath.takeIf { it.isNotBlank() }?.let(::File)
     if (mode == "keygen") { createKey(requireNotNull(keyDir) { "Set PUREFUSION_PFP_SIGNING_DIR outside the checkout" }, File(".")); println("Created external Ed25519 key; back it up securely."); return }
@@ -109,7 +112,7 @@ private fun verifyArchive(file: File, signed: Boolean, expectedKey: PublicKey? =
         require(manifestBytes.size <= 262144)
         val manifest = JsonSlurper().parse(manifestBytes) as Map<*, *>
         require(manifest["schemaVersion"] == 1) { "Unsupported or invalid manifest schema" }
-        require(manifest["apiLevel"] == PluginApi.CURRENT) { "Unsupported or invalid Plugin API level" }
+        require(acceptsApiLevel(manifest["apiLevel"])) { "Unsupported or invalid Plugin API level" }
         require(manifest.number("minSdk") >= 26)
         val trustTier = if (signed) "verified_partner" else PfpPackager.TRUST_TIER_UNSIGNED_DEV
         require(manifest["installType"] == "executable_bundle" && manifest["trustTier"] == trustTier)

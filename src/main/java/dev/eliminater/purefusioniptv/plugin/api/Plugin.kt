@@ -146,5 +146,8 @@ enum class PluginCapability {
     UI_EXTENSION,
 
     /** Provides media server integration (Emby, Plex, Jellyfin, etc.) */
-    MEDIA_SERVER
+    MEDIA_SERVER,
+
+    /** Provides DVR workflows through the API 4 isolated DVR contract. */
+    DVR_PROVIDER,
 }

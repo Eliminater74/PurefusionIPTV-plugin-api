@@ -6,10 +6,11 @@ buildscript {
 
 plugins {
     alias(libs.plugins.android.library)
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.3.20"
 }
 
 group = "dev.eliminater.purefusioniptv"
-version = "1.0.0"
+version = "1.1.0"
 
 android {
     namespace = "dev.eliminater.purefusioniptv.plugin.api"
@@ -17,7 +18,10 @@ android {
 
     defaultConfig {
         minSdk = 25
+        buildConfigField("String", "SDK_LIBRARY_VERSION", "\"$version\"")
     }
+
+    buildFeatures { buildConfig = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -35,9 +39,8 @@ kotlin {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.gson)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
 
-    // The compatibility contract in PluginApi is the one part of this module with behaviour rather
-    // than just shape, and it is what the host uses to refuse a plugin before loading its code.
-    // A module intended to ship publicly should be able to prove that rule on its own.
     testImplementation(libs.junit)
 }

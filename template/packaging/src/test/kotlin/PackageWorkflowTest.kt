@@ -46,6 +46,14 @@ class PackageWorkflowTest {
         assertThrows(IllegalArgumentException::class.java) { verifyPackage(file) }
     }
 
+    @Test fun developmentPackageStillAcceptsApi3() {
+        val file = PfpPackager.build(
+            request().copy(apiLevel = 3, trustTier = PfpPackager.TRUST_TIER_UNSIGNED_DEV),
+            fixtures.newFolder(),
+        )
+        assertEquals(3, verifyDevelopmentPackage(file)["apiLevel"])
+    }
+
     @Test fun truncatedArchiveIsRejected() {
         val source = developmentFixture()
         val truncated = fixtures.newFile("truncated.pfp")

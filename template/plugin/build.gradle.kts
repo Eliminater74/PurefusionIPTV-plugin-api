@@ -13,6 +13,7 @@ android {
         targetSdk = 36
         versionCode = identity["versionCode"] as Int
         versionName = identity["version"] as String
+        buildConfigField("int", "pluginApiLevel", (identity["apiLevel"] as Int).toString())
         for (name in listOf("pluginId", "displayName", "publisher", "description", "version", "minHostVersion"))
             buildConfigField("String", name, JsonOutput.toJson(identity[name]))
     }

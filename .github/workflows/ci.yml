@@ -55,6 +55,9 @@ jobs:
       - name: Build SDK and test API compatibility and packaging
         run: bash template/gradlew --no-daemon --console=plain assembleDebug testDebugUnitTest
 
+      - name: Build and test the independent DVR example
+        run: bash template/gradlew -p examples/dvr --no-daemon --console=plain assembleDebug testDebugUnitTest
+
       - name: Test starter and verify development and developer-signed packages
         working-directory: template
         run: |

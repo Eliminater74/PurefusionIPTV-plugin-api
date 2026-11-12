@@ -1,0 +1,15 @@
+{
+  "pluginId": "dev.example.purefusiondvr",
+  "developerId": "example_developer",
+  "displayName": "Synthetic DVR Example",
+  "publisher": "Example Developer",
+  "description": "Synthetic DVR control flow for local SDK tests",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "apiLevel": 4,
+  "minSdk": 26,
+  "minHostVersion": "1.0.0",
+  "entryPoint": "dev.example.purefusiondvr.SyntheticDvrPlugin",
+  "category": "dvr_provider",
+  "capabilities": ["DVR_ACCESS"]
+}

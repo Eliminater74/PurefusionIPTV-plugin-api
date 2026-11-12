@@ -2,6 +2,8 @@
 
 A working API 3 isolated plugin: customize → build → test → sign → verify → complete listing → submit for review.
 
+The starter uses the API level in its manifest for both the compiled entry point and package. It stays at API 3 when built against SDK 1.1.0. For the API 4 contract, see the [independent DVR example](../examples/dvr/README.md).
+
 Open **this directory** in Android Studio. You need public Plugin API source, Android SDK 36/Build Tools 36.0.0, a Gradle-supported JDK 17+, and Node 24 for listing/setup tools. Core, Firebase credentials and first-party signing keys are not dependencies. The Gradle 9.4.1 wrapper is included. AGP 9.2.1 and Kotlin 2.3.20 match the SDK; JVM bytecode targets Java 17.
 
 Start with [Getting Started](GETTING_STARTED.md), then [Developer Guide](DEVELOPER_GUIDE.md), [Listing Guide](marketplace/LISTING_GUIDE.md), [Signing](docs/SIGNING.md), [Submission](docs/SUBMISSION.md), [Capabilities](docs/CAPABILITIES.md), and [Troubleshooting](docs/TROUBLESHOOTING.md). See the [Plugin Author Guide](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/PLUGIN_AUTHOR_GUIDE.md), [surface protocol](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/SANDBOX_SURFACE_PROTOCOL.md) and [Wiki page index](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/wiki/README.md) for the SDK and host contracts.

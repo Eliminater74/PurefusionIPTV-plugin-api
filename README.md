@@ -7,15 +7,15 @@ Build Android TV plugins independently of the PureFusionIPTV application. This o
 
 | Contract | Current requirement |
 | --- | --- |
-| Plugin API | Level **3** (`CURRENT = MIN_SUPPORTED = 3`). The host must also implement any optional protocol the plugin uses. |
+| Plugin API | SDK **1.1.0** declares `CURRENT = 4` and `MIN_SUPPORTED = 3`. The currently pinned Core uses API 3. |
 | Android | The SDK library has `minSdk = 25`. Isolated execution and the starter require Android 8.0 / API **26+**. |
 | Build tools | JDK 17 or a later JDK supported by the Gradle 9.4.1 wrapper, Android Platform 36 and Build Tools 36.0.0. The starter also uses Node 24 for its listing tools. |
 | SDK revision | Pin a public source revision containing `template/` and the required sandbox interfaces. The [v1.0.2 source release](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/releases/tag/v1.0.2) predates the starter and sandbox extensions. |
-| Gradle dependency | `dev.eliminater.purefusioniptv:plugin-api:1.0.0` is the build coordinate. The starter substitutes the pinned source through `includeBuild`. |
+| Gradle dependency | `dev.eliminater.purefusioniptv:plugin-api:1.1.0` is the SDK build coordinate. The examples use pinned source through `includeBuild`. |
 
 ## Quick start
 
-1. Download the [public SDK source](https://github.com/Eliminater74/PurefusionIPTV-plugin-api) at a suitable revision. Open [the official starter](template/README.md) in Android Studio, or copy it into your plugin repository and point it at the SDK. See [Getting Started](template/GETTING_STARTED.md) for layout, identity setup and Gradle configuration.
+1. Download the [public SDK source](https://github.com/Eliminater74/PurefusionIPTV-plugin-api) at a suitable revision. Open [the API 3 starter](template/README.md) in Android Studio, or copy it into your plugin repository and point it at the SDK. For the API 4 DVR contract, use the [independent DVR example](examples/dvr/README.md).
 2. Give the plugin a stable reverse-DNS ID and match its manifest, entry class and compiled metadata. Use the template's `compileOnly` SDK dependency so the DEX uses the host's API classes. The installed package's manifest selects the entry point. The starter also includes the service registration at `src/main/resources/META-INF/services/dev.eliminater.purefusioniptv.plugin.api.Plugin`.
 3. Build and test from the starter directory. On Windows, use `.\gradlew.bat` with the same tasks.
 
@@ -29,12 +29,13 @@ Build Android TV plugins independently of the PureFusionIPTV application. This o
 
 ## Continuous integration
 
-[Plugin SDK CI](.github/workflows/ci.yml) runs on pull requests targeting `main`, pushes to `main`, and manual dispatch. It builds the SDK and starter, runs the API compatibility and packaging tests, verifies a generated development package and a package signed with a disposable Ed25519 key, and runs the offline Marketplace listing tests, including `subtitle_provider`.
+[Plugin SDK CI](.github/workflows/ci.yml) builds the SDK, starter and DVR example. It runs API compatibility, DVR protocol, packaging and offline Marketplace listing tests, and verifies development and disposable-key packages.
 
 From the SDK root, set `ANDROID_HOME` to an SDK with Platform 36 and Build Tools 36.0.0. Use JDK 25 and Node.js 24 to match CI.
 
 ```sh
 bash template/gradlew --no-daemon assembleDebug testDebugUnitTest
+bash template/gradlew -p examples/dvr --no-daemon assembleDebug testDebugUnitTest
 bash template/gradlew -p template --no-daemon :plugin:testDebugUnitTest :packaging:test :packaging:packageDevelopment
 node --test template/tools/test/workflow.test.cjs
 ```
@@ -46,6 +47,7 @@ On Windows, use `.\template\gradlew.bat` with the same arguments. To reproduce t
 - **Host-rendered TV screens.** The API 3 [surface protocol](docs/SANDBOX_SURFACE_PROTOCOL.md) supports bounded screen descriptors, host-owned navigation and forms. Sports Hub uses this path with a reserved host entry point. Generic third-party screen launch is unavailable.
 - **Subtitle providers.** The [subtitle contract](docs/wiki/Subtitle-Plugins.md) supplies search results and SRT or WebVTT bytes to the host. Core validates and renders them. OpenSubtitles uses a scoped, host-owned broker and first-party credential provisioning.
 - **Media and data providers.** The SDK defines media-server, cloud-storage and sync contracts. Emby uses the media-server contract through a pinned first-party compatibility worker. Availability of an interface in the SDK does not grant a third-party runtime route.
+- **DVR providers.** API 4 defines bounded recording control, durable scheduling, recovery and playback handoff. Core integration and a DVR plugin release are future milestones. See the [DVR plugin guide](docs/DVR_PLUGIN_GUIDE.md).
 
 Isolated plugins have no direct sockets or access to Core private data. The host can grant consent-bound HTTP, scoped non-secret storage and bounded Live TV catalog reads to approved releases. The template supports a local build and test loop. Public third-party executable distribution, website credential delivery and generic remote plugin settings remain gated or unavailable.
 

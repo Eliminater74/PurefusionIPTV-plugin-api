@@ -12,4 +12,6 @@
 
 The SDK also has provider-shaped interfaces. Availability of their types is separate from executable admission. See [API Reference](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/wiki/API-Reference) and [Security Model](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/wiki/Security-Model).
 
+**DVR contract.** SDK 1.1.0 defines bounded `pf.dvr.v1` commands and a session-scoped host facade for the existing isolated worker architecture. The future Core adapter owns entitlement, scheduling, capture resources, protected media and playback. The currently pinned API 3 Core uses its existing recorder. See the [DVR plugin guide](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/DVR_PLUGIN_GUIDE.md).
+
 [Wiki Home](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/wiki/Home)

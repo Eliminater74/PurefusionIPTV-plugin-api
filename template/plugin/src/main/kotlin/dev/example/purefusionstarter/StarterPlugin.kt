@@ -13,7 +13,7 @@ class StarterPlugin : Plugin, SandboxPluginV1, SandboxSurfacePluginV1 {
     override val description = BuildConfig.description
     override val version = BuildConfig.version
     override val minAppVersion = BuildConfig.minHostVersion
-    override val apiLevel = PluginApi.CURRENT
+    override val apiLevel = BuildConfig.pluginApiLevel
     override val capabilities = emptyList<PluginCapability>()
     private var broker: SandboxCapabilitiesV1? = null
     private var count = 0
