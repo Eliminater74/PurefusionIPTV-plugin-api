@@ -71,6 +71,14 @@ class DvrProtocolV1CorrectionsTest {
         assertNotNull(DvrProtocolV1.encodeRequest(DvrRequestV1("r", DvrCommandV1.UpdateRule("rule-1", refresh = true))))
     }
 
+    @Test fun `cancel accepts old requests and preserves the scheduled-only intent`() {
+        val legacy = """{"schema":"pf.dvr.v1","requestId":"old","command":{"kind":"cancel","recordingId":"cap-7"}}"""
+        assertEquals(DvrCommandV1.Cancel("cap-7", scheduledOnly = false),
+            DvrProtocolV1.decodeRequest(legacy.toByteArray(), DvrEndpointV1.PROVIDER)?.command)
+        assertReply(roundTrip(DvrCommandV1.Cancel("cap-7", scheduledOnly = true), DvrEndpointV1.PROVIDER),
+            DvrPayloadV1.Recording(capture.copy(state = DvrRecordingStateV1.CANCELED)))
+    }
+
     @Test fun `host capture listing update and delete carry host snapshots only`() {
         val list = roundTrip(DvrCommandV1.ListCaptures(state = DvrRecordingStateV1.SCHEDULED), DvrEndpointV1.HOST)
         assertReply(list, DvrPayloadV1.Recordings(listOf(capture), "after-cap-7"))

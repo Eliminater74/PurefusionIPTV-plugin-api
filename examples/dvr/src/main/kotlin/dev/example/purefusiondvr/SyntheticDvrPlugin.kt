@@ -56,8 +56,8 @@ class SyntheticDvrPlugin : Plugin, SandboxPluginV1, DvrProvider {
 
     private fun dispatch(call: DvrRequestV1): DvrReplyV1 = when (val command = call.command) {
         is DvrCommandV1.Schedule -> mutate(call) { schedule(call, command.schedule) }
-        is DvrCommandV1.Cancel -> mutate(call) { refresh(call, command.recordingId, cancel = true) }
-        is DvrCommandV1.Status -> refresh(call, command.recordingId, cancel = false)
+        is DvrCommandV1.Cancel -> mutate(call) { refresh(call, command.recordingId, cancel = command) }
+        is DvrCommandV1.Status -> refresh(call, command.recordingId)
         is DvrCommandV1.RuleStatus -> ruleStatus(call, command.ruleId)
         is DvrCommandV1.ListRecordings -> listRecordings(call, command)
         DvrCommandV1.ListDestinations -> exchange(call, DvrCommandV1.HostDestinations)
@@ -85,9 +85,9 @@ class SyntheticDvrPlugin : Plugin, SandboxPluginV1, DvrProvider {
         return ok(call, DvrPayloadV1.Rule(snapshot.ruleStatus()))
     }
 
-    private fun refresh(call: DvrRequestV1, recordingId: String, cancel: Boolean): DvrReplyV1 {
+    private fun refresh(call: DvrRequestV1, recordingId: String, cancel: DvrCommandV1.Cancel? = null): DvrReplyV1 {
         val entry = recordings[recordingId] ?: return error(call, DvrCodeV1.NOT_FOUND)
-        val result = exchange(call, if (cancel) DvrCommandV1.CancelCapture(entry.captureId)
+        val result = exchange(call, if (cancel != null) DvrCommandV1.CancelCapture(entry.captureId, cancel.scheduledOnly)
             else DvrCommandV1.CaptureStatus(entry.captureId))
         val capture = (result.payload as? DvrPayloadV1.Recording)?.snapshot ?: return result
         val current = entry.snapshot
@@ -105,7 +105,7 @@ class SyntheticDvrPlugin : Plugin, SandboxPluginV1, DvrProvider {
     private fun ruleStatus(call: DvrRequestV1, ruleId: String): DvrReplyV1 {
         val entry = recordings.values.firstOrNull { it.snapshot.ruleId == ruleId }
             ?: return error(call, DvrCodeV1.NOT_FOUND)
-        val result = refresh(call, entry.snapshot.recordingId, cancel = false)
+        val result = refresh(call, entry.snapshot.recordingId)
         val snapshot = (result.payload as? DvrPayloadV1.Recording)?.snapshot ?: return result
         return ok(call, DvrPayloadV1.Rule(snapshot.ruleStatus()))
     }

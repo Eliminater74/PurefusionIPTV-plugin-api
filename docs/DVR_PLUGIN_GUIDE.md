@@ -46,7 +46,7 @@ The codec rejects unknown members, duplicate keys, invalid UTF-8, invalid scalar
 | `list_rules`, `update_rule` | Page rules with display detail (kind, channel, title, padding, series, episode mode, last guide check). Pause or resume, change new-episodes-only or padding, allow excluded episodes again, or re-check the guide now. |
 | `rule_episodes`, `set_episode` | Page a rule's episode decisions and exclude or allow one episode. Excluding an episode cancels its recording if it has not started. |
 | `status`, `list_recordings` | Fetch a recording snapshot or a bounded page. Filter by rule or state, including `COMPLETED` and `INTERRUPTED`. |
-| `cancel`, `stop`, `update_recording`, `delete_recording` | Cancel an occurrence, ask an active capture to finalize, change a recording's padding, or remove a finished recording with its media. Poll status after a successful control result. |
+| `cancel`, `stop`, `update_recording`, `delete_recording` | Cancel an occurrence, ask an active capture to finalize, change a recording's padding, or remove a finished recording with its media. Forward `cancel.scheduledOnly` to `cancel_capture` when withdrawing a schedule so a capture that already started is refused. The optional field defaults to false for existing callers. Poll status after a successful control result. |
 | `list_destinations` | Report eligible destinations, writability and optional space estimates. |
 | `playback` | Request a short-lived host-issued playback handoff for a completed recording on explicit user action. |
 | `wake` | Deliver a registered scheduler callback so the provider can reconcile and advance a rule. |

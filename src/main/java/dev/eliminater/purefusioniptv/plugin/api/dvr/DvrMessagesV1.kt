@@ -88,9 +88,9 @@ sealed interface DvrCommandV1 {
         override val operation get() = DvrOperationV1.LIST_RECORDINGS
     }
 
-    /** Cancels a pending or active occurrence. No playable recording is promised. */
+    /** Cancels an occurrence. [scheduledOnly] refuses cancellation after capture starts. */
     @Serializable @SerialName("cancel")
-    data class Cancel(val recordingId: String) : DvrCommandV1 {
+    data class Cancel(val recordingId: String, val scheduledOnly: Boolean = false) : DvrCommandV1 {
         override val operation get() = DvrOperationV1.CANCEL
     }
 
