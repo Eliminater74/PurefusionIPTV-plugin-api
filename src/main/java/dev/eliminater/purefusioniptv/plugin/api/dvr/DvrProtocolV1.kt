@@ -20,7 +20,7 @@ import java.io.IOException
  */
 object DvrProtocolV1 {
     const val SCHEMA = "pf.dvr.v1"
-    /** Signed manifest routing values for a future DVR-capable host. */
+    /** Signed manifest routing values for a DVR provider package. */
     const val MANIFEST_CATEGORY = "dvr_provider"
     const val MANIFEST_CAPABILITY = "DVR_ACCESS"
     const val MAX_REQUEST_BYTES = 16 * 1024
@@ -36,6 +36,18 @@ object DvrProtocolV1 {
     const val MAX_PADDING_SECONDS = 2 * 60 * 60
     const val MAX_WINDOW_MS = 7L * 24 * 60 * 60 * 1000
     const val CALL_TIMEOUT_MS = 5_000L
+    /** Episode evidence tokens per programme. */
+    const val MAX_EVIDENCE_TOKENS = 4
+    /** Characters in one durable provider state value. */
+    const val MAX_STATE_VALUE_CHARS = 6 * 1024
+    /** Records written in one atomic [DvrCommandV1.PutState]. */
+    const val MAX_STATE_PUTS = 8
+    /** Records deleted in one atomic [DvrCommandV1.PutState]. */
+    const val MAX_STATE_DELETES = 20
+    /** Characters in a [DvrCommandV1.ListState] prefix. */
+    const val MAX_STATE_PREFIX_CHARS = 64
+    /** Destination that follows the user's DVR storage setting when each capture is accepted. */
+    const val DEFAULT_DESTINATION = "default"
 
     private val json = Json { classDiscriminator = "kind" }
     // Include defaults when checking explicitly provided wire fields for type coercion.

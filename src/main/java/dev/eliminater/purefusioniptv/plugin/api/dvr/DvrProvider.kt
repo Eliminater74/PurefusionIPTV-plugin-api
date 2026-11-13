@@ -8,7 +8,12 @@ import dev.eliminater.purefusioniptv.plugin.api.SandboxPluginV1
  *
  * A DVR-capable host calls [onDvrLoad] after sandbox initialization and admission. Calls are bounded,
  * serialized per worker and may be cut short by worker retirement. Store durable rule and recording
- * state independently of the worker. [Plugin.onUnload] releases session references.
+ * state independently of the worker, for example with the host's `put_state` service.
+ * [Plugin.onUnload] releases session references.
+ *
+ * The entry class declares `Plugin.capabilities == listOf(PluginCapability.DVR_PROVIDER)`. Its signed
+ * manifest uses category [DvrProtocolV1.MANIFEST_CATEGORY] and host capability
+ * [DvrProtocolV1.MANIFEST_CAPABILITY] at plugin API level 4.
  */
 interface DvrProvider {
     /** Receives a session-scoped facade. The host still authorizes each exchange. */
@@ -19,7 +24,7 @@ interface DvrProvider {
 }
 
 /**
- * Worker-side proxy for host-owned DVR services. Implemented by a future isolated host adapter.
+ * Worker-side proxy for host-owned DVR services, implemented by the host's isolated DVR adapter.
  *
  * Calls carry [DvrEndpointV1.HOST] envelopes. A null reply means the outcome is unknown. Reconcile
  * durable state or retry a mutation with the original request ID and payload. The host must never

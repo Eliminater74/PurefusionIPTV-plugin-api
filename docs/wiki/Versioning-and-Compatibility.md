@@ -18,7 +18,7 @@
 | 3 | Compatible | Compatible |
 | 4 | Too new | Compatible |
 
-API compatibility is one admission check. Each optional protocol needs its own host integration. Existing API 3 plugins can keep their compiled entry points and manifests. The [DVR protocol](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/DVR_PLUGIN_GUIDE.md) requires both API 4 and the future DVR route. `PluginSdk.currentApi`, `minSupportedApi` and `supportedApiRange` expose the bundled SDK's compatibility information for a future About screen.
+API compatibility is one admission check. Each optional protocol needs its own host integration. Existing API 3 plugins can keep their compiled entry points and manifests. The [DVR protocol](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/DVR_PLUGIN_GUIDE.md) requires both API 4 and a host with the DVR route. `PluginSdk.currentApi`, `minSupportedApi` and `supportedApiRange` expose the bundled SDK's compatibility information for a future About screen.
 
 ## Migration from older contracts
 

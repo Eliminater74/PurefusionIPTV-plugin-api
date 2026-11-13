@@ -26,11 +26,11 @@ Put one fully qualified implementation class per line. The [starter service file
 | --- | --- | --- |
 | Host-rendered screen | `Plugin`, `SandboxPluginV1`, `SandboxSurfacePluginV1` | Declare `UI_HOME_EXTENSION`. A TV screen needs a host launch integration. Use `pf.surface.v1` descriptors for UI and Back. |
 | Subtitle provider | `Plugin`, `SandboxPluginV1`, `SandboxSubtitlePluginV1` | Signed `subtitle_provider` category on a compatible host. Core owns playback and subtitle rendering. See the [subtitle protocol guide](wiki/Subtitle-Plugins.md). |
-| DVR provider | `Plugin`, `SandboxPluginV1`, `DvrProvider` | API 4 contract. The future Core adapter owns authorization, stream access, scheduling, storage and playback. See the [DVR guide](DVR_PLUGIN_GUIDE.md). |
+| DVR provider | `Plugin`, `SandboxPluginV1`, `DvrProvider` | API 4 contract. The provider owns DVR decisions; the host owns authorization, stream access, capture execution, storage and playback. See the [DVR guide](DVR_PLUGIN_GUIDE.md). |
 | Capability-free executable | `Plugin` | An admitted isolated package without capabilities or a subtitle category receives the isolated worker's local application `Context` in `onLoad`. |
 | Provider compatibility | `MediaServerProvider`, `CloudStorageProvider`, `SyncProvider` | These are SDK contracts. The current external executable policy reserves the app-UID worker path for the pinned first-party Emby release. |
 
-Keep `Plugin.capabilities` empty for API 3 isolated entry points. The future DVR route uses the `DVR_PROVIDER` role and a separate signed `DVR_ACCESS` request. A provider role describes the entry point. Core verifies the signed declaration and consent before granting any access.
+Keep `Plugin.capabilities` empty for API 3 isolated entry points. A DVR provider declares exactly the `DVR_PROVIDER` role and the separate signed `DVR_ACCESS` request. A provider role describes the entry point. Core verifies the signed declaration and consent before granting any access.
 
 Capability-bearing and subtitle entry points initialize through `onSandboxLoad(capabilities)` in their isolated worker. Implement the required `onLoad(Context)` member, but do not rely on it for those entry points. Release references and cancel work in `onUnload`. Persist only confirmed, independently valid records because worker termination can skip cleanup. Use the [capability guide](../template/docs/CAPABILITIES.md) for supported operations.
 

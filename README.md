@@ -47,7 +47,7 @@ On Windows, use `.\template\gradlew.bat` with the same arguments. To reproduce t
 - **Host-rendered TV screens.** The API 3 [surface protocol](docs/SANDBOX_SURFACE_PROTOCOL.md) supports bounded screen descriptors, host-owned navigation and forms. Sports Hub uses this path with a reserved host entry point. Generic third-party screen launch is unavailable.
 - **Subtitle providers.** The [subtitle contract](docs/wiki/Subtitle-Plugins.md) supplies search results and SRT or WebVTT bytes to the host. Core validates and renders them. OpenSubtitles uses a scoped, host-owned broker and first-party credential provisioning.
 - **Media and data providers.** The SDK defines media-server, cloud-storage and sync contracts. Emby uses the media-server contract through a pinned first-party compatibility worker. Availability of an interface in the SDK does not grant a third-party runtime route.
-- **DVR providers.** API 4 defines bounded recording control, durable scheduling, recovery and playback handoff. Core integration and a DVR plugin release are future milestones. See the [DVR plugin guide](docs/DVR_PLUGIN_GUIDE.md).
+- **DVR providers.** API 4 defines bounded recording control, durable scheduling, recovery and playback handoff. PureFusionIPTV hosts DVR providers; PureFusion DVR is the first-party provider. See the [DVR plugin guide](docs/DVR_PLUGIN_GUIDE.md).
 
 Isolated plugins have no direct sockets or access to Core private data. The host can grant consent-bound HTTP, scoped non-secret storage and bounded Live TV catalog reads to approved releases. The template supports a local build and test loop. Public third-party executable distribution, website credential delivery and generic remote plugin settings remain gated or unavailable.
 

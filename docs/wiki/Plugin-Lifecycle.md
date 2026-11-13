@@ -8,7 +8,7 @@
 
 See [Security Model](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/wiki/Security-Model) for trust and [Troubleshooting](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/wiki/Troubleshooting) for diagnosis.
 
-## Future API 4 DVR lifecycle
+## API 4 DVR lifecycle
 
 After verifying trust, entitlement and the signed DVR grant, a DVR-capable host initializes the ordinary isolated sandbox and calls `DvrProvider.onDvrLoad` with a scoped host facade. Each `handleDvr` callback accepts a short control operation. Durable jobs and wake scheduling survive worker replacement under host policy. On reconnect, reload durable rule IDs and receipts and reconcile through status calls. Drop session references on unload. See the [DVR plugin guide](https://github.com/Eliminater74/PurefusionIPTV-plugin-api/blob/main/docs/DVR_PLUGIN_GUIDE.md) for deadlines, cancellation and retry behavior.
 
